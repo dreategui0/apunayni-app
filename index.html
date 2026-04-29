@@ -581,6 +581,36 @@ let state = {
   form: { ie: 'INGRESO', medio: '', tipo: '' }
 };
 
+// ─── NUMBER PARSING ───────────────────────────────────────────────────────────
+function parseSheetNumber(raw) {
+  if (raw === null || raw === undefined || raw === '') return NaN;
+  if (typeof raw === 'number') return raw;
+  let s = String(raw).trim();
+  const neg = s.startsWith('-');
+  if (neg) s = s.slice(1);
+  // Remove currency symbols and spaces
+  s = s.replace(/[$\s€]/g, '');
+  // Colombian format: dots as thousands separator
+  // Multiple dots => all are thousand separators: "1.606.910"
+  if ((s.match(/\./g) || []).length > 1) {
+    s = s.replace(/\./g, '').replace(',', '.');
+  } else if (s.includes(',') && s.includes('.')) {
+    const lastDot = s.lastIndexOf('.');
+    const lastComma = s.lastIndexOf(',');
+    if (lastComma > lastDot) {
+      s = s.replace(/\./g, '').replace(',', '.');
+    } else {
+      s = s.replace(/,/g, '');
+    }
+  } else if (s.includes(',')) {
+    const parts = s.split(',');
+    s = (parts[1] && parts[1].length <= 2) ? s.replace(',', '.') : s.replace(',', '');
+  }
+  s = s.replace(/[^0-9.]/g, '');
+  const val = parseFloat(s);
+  return isNaN(val) ? NaN : (neg ? -val : val);
+}
+
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   if (!state.sheetId || !state.apiKey) {
@@ -631,7 +661,7 @@ async function syncData() {
     const data = await res.json();
     const vals = data.values || [];
     state.rows = vals.filter(r => r[0] && r[1]).map(r => ({
-      fecha: r[0] || '', valor: parseFloat((r[1]||'0').replace(/[^0-9.-]/g,'')),
+      fecha: r[0] || '', valor: parseSheetNumber(r[1]),
       desc:  (r[2]||'').trim(), medio: (r[3]||'').trim().toUpperCase(),
       tipo:  (r[4]||'').trim().toUpperCase(), ie: (r[5]||'').trim().toUpperCase(),
       notas: r[7] || ''
