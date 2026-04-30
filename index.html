@@ -174,24 +174,109 @@ html, body {
 .mes-row-val.net { color: var(--text); }
 
 /* ── COSTOS FIJOS ────────────────────────────────────────────────────── */
+/* ── COSTO CARDS (compact) ───────────────────────────────────────────── */
 .costo-row {
   display: flex; align-items: center; gap: 12px;
-  padding: 11px 0; border-bottom: 1px solid var(--border);
+  padding: 12px 10px; border-bottom: 1px solid var(--border);
+  cursor: pointer; border-radius: 8px; transition: background 0.15s;
+  margin: 0 -10px;
 }
-.costo-row:last-child { border-bottom: none; }
+.costo-row:active { background: var(--surface2); }
+.costo-row:last-of-type { border-bottom: none; }
 .costo-dot {
   width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
 }
-.costo-dot.pagado   { background: var(--green); }
-.costo-dot.pendiente{ background: var(--red); }
-.costo-dot.parcial  { background: var(--gold); }
-.costo-dot.na       { background: var(--text3); }
+.costo-dot.pagado    { background: var(--green); box-shadow: 0 0 5px var(--green); }
+.costo-dot.pendiente { background: var(--red); }
+.costo-dot.parcial   { background: var(--gold); }
+.costo-dot.excedente { background: var(--accent); box-shadow: 0 0 5px var(--accent); }
 .costo-info { flex: 1; min-width: 0; }
-.costo-nombre { font-size: 14px; font-weight: 500; }
-.costo-sub { font-size: 12px; color: var(--text3); margin-top: 1px; }
+.costo-nombre { font-size: 13px; font-weight: 600; }
+.costo-sub { font-size: 11px; color: var(--text3); margin-top: 1px; }
 .costo-monto { text-align: right; flex-shrink: 0; }
-.costo-esperado { font-size: 14px; font-weight: 600; }
-.costo-pendiente-val { font-size: 11px; color: var(--red); margin-top: 1px; }
+.costo-pagado-val { font-size: 13px; font-weight: 700; color: var(--text); }
+.costo-balance-val { font-size: 11px; margin-top: 2px; }
+.costo-balance-val.debe { color: var(--red); }
+.costo-balance-val.ok   { color: var(--green); }
+.costo-balance-val.ex   { color: var(--accent); }
+.costo-tap-hint { font-size: 10px; color: var(--text3); margin-top: 1px; }
+
+/* ── COSTO MODAL ─────────────────────────────────────────────────────── */
+.costo-modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  z-index: 200; display: flex; align-items: flex-end;
+  opacity: 0; pointer-events: none; transition: opacity 0.25s;
+}
+.costo-modal-overlay.open { opacity: 1; pointer-events: all; }
+.costo-modal {
+  background: var(--surface); border-radius: 20px 20px 0 0;
+  width: 100%; max-height: 80vh; overflow-y: auto;
+  padding: 20px 20px 40px;
+  transform: translateY(30px); transition: transform 0.25s;
+}
+.costo-modal-overlay.open .costo-modal { transform: none; }
+.costo-modal-handle {
+  width: 36px; height: 4px; border-radius: 2px;
+  background: var(--border2); margin: 0 auto 18px;
+}
+.costo-modal-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.costo-modal-periodo { font-size: 12px; color: var(--text3); margin-bottom: 20px; }
+
+/* Progress bar */
+.prog-wrap { margin-bottom: 20px; }
+.prog-label { display: flex; justify-content: space-between;
+  font-size: 11px; color: var(--text3); margin-bottom: 6px; }
+.prog-track {
+  height: 10px; border-radius: 5px; background: var(--surface2);
+  position: relative; overflow: visible;
+}
+.prog-bar-base {
+  position: absolute; left: 0; top: 0; height: 100%; border-radius: 5px;
+  background: var(--accent-dim);
+  transition: width 0.5s ease;
+}
+.prog-bar-prev {
+  position: absolute; left: 0; top: 0; height: 100%; border-radius: 5px;
+  background: var(--gold);
+  transition: width 0.5s ease;
+}
+.prog-bar-paid {
+  position: absolute; left: 0; top: 0; height: 100%; border-radius: 5px;
+  background: var(--green);
+  transition: width 0.5s ease;
+}
+.prog-bar-over {
+  position: absolute; top: -2px; height: 14px; border-radius: 4px;
+  background: var(--accent); opacity: 0.85;
+  transition: width 0.5s ease;
+}
+.prog-target-line {
+  position: absolute; top: -3px; width: 2px; height: 16px;
+  background: var(--text); border-radius: 1px;
+}
+
+/* Modal breakdown rows */
+.modal-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 9px 0; border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.modal-row:last-child { border-bottom: none; }
+.modal-row-label { color: var(--text2); }
+.modal-row-val { font-weight: 600; }
+.modal-section-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text3);
+  margin: 16px 0 8px;
+}
+.modal-mov-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 10px; border-radius: 8px; background: var(--surface2);
+  margin-bottom: 6px; font-size: 12px;
+}
+.modal-mov-fecha { color: var(--text3); }
+.modal-mov-medio { color: var(--text3); font-size: 11px; }
+.modal-mov-val { font-weight: 700; color: var(--green); }
 
 /* ── MOVIMIENTOS LIST ────────────────────────────────────────────────── */
 .mov-date-label {
@@ -542,6 +627,19 @@ html, body {
   </nav>
 </div>
 
+<!-- Costo detail modal -->
+<div class="costo-modal-overlay" id="costoModalOverlay" onclick="closeCostoModal(event)">
+  <div class="costo-modal" id="costoModal">
+    <div class="costo-modal-handle"></div>
+    <div class="costo-modal-title" id="modalTitle"></div>
+    <div class="costo-modal-periodo" id="modalPeriodo"></div>
+    <div class="prog-wrap" id="modalProgWrap"></div>
+    <div id="modalBreakdown"></div>
+    <div class="modal-section-title" id="modalMovsTitle" style="display:none">Pagos del mes</div>
+    <div id="modalMovs"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -854,103 +952,80 @@ function renderCostosFijos() {
     return d && d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
   });
 
-  const alertas = []; // items with debt carried from previous month
+  const alertas = [];
 
-  const html = COSTOS_FIJOS_DEF.map(cf => {
+  const html = COSTOS_FIJOS_DEF.map((cf, idx) => {
     const kw        = cf.keyword.toUpperCase();
-    const pagadoMes = mesRows.filter(r => r.desc.toUpperCase()===kw)
-                             .reduce((s,r) => s+Math.abs(r.valor), 0);
-
+    const pagadoMes = mesRows.filter(r=>r.desc.toUpperCase()===kw)
+                             .reduce((s,r)=>s+Math.abs(r.valor),0);
     const balance   = calcBalanceAnterior(cf, allEgresos, now);
     const deudaAnt  = balance.deuda;
-    const exAnt     = balance.excedente; // credit carried from prev month
+    const exAnt     = balance.excedente;
 
     let mensualDisplay, pendienteMes;
-
-    if (cf.tipo === 'lili') {
+    if (cf.tipo==='lili') {
       mensualDisplay = liliMensualActual();
-      // Reduce this month's due by any credit from previous month
       pendienteMes   = Math.max(0, mensualDisplay - exAnt - pagadoMes);
-
-    } else if (cf.tipo === 'alejo') {
+    } else if (cf.tipo==='alejo') {
       mensualDisplay = 1900000;
-      // Reduce this month's due by any historical credit
       pendienteMes   = Math.max(0, mensualDisplay - exAnt - pagadoMes);
-
-    } else if (cf.tipo === 'accum') {
+    } else if (cf.tipo==='accum') {
       mensualDisplay    = cf.mensual;
-      const meses       = monthDiff(INICIO_MES, now) + 1;
+      const meses       = monthDiff(INICIO_MES,now)+1;
       const totalPagado = allEgresos.filter(r=>r.desc.toUpperCase()===kw).reduce((s,r)=>s+Math.abs(r.valor),0);
       pendienteMes      = Math.max(0, cf.mensual*meses - totalPagado);
-
-    } else if (cf.tipo === 'variable') {
+    } else if (cf.tipo==='variable') {
       mensualDisplay = cf.mensual;
-      pendienteMes   = pagadoMes > 0 ? 0 : cf.mensual;
-
-    } else { // fixed
+      pendienteMes   = pagadoMes>0 ? 0 : cf.mensual;
+    } else {
       mensualDisplay = cf.mensual;
       pendienteMes   = Math.max(0, cf.mensual - pagadoMes);
     }
 
-    // Excedente this month (paid more than expected this month, beyond any prev credit)
-    const exMes = (cf.tipo !== 'accum' && cf.tipo !== 'variable')
-      ? Math.max(0, pagadoMes + exAnt - mensualDisplay)
-      : 0;
-
+    const totalEsperado  = mensualDisplay + deudaAnt;
+    const totalRecibido  = pagadoMes + exAnt;
+    const exMes          = (cf.tipo!=='accum'&&cf.tipo!=='variable') ? Math.max(0, totalRecibido - totalEsperado) : 0;
     const totalPendiente = pendienteMes + deudaAnt;
 
-    // Estado
     let estado, dotClass;
-    if (totalPendiente === 0 && (exMes > 0 || exAnt > 0 || pagadoMes >= mensualDisplay)) {
-      estado = 'PAGADO'; dotClass = 'pagado';
-    } else if (pagadoMes > 0) {
-      estado = 'PARCIAL'; dotClass = 'parcial';
+    if (exMes>0)               { estado='PAGADO';    dotClass='excedente'; }
+    else if (totalPendiente===0){ estado='PAGADO';    dotClass='pagado'; }
+    else if (pagadoMes>0)       { estado='PARCIAL';   dotClass='parcial'; }
+    else                         { estado='PENDIENTE'; dotClass='pendiente'; }
+
+    if (deudaAnt>0) alertas.push({nombre:cf.nombre, monto:deudaAnt});
+
+    let balanceHtml;
+    if (exMes>0) {
+      balanceHtml = `<div class="costo-balance-val ex">↑ ${fmtCOP(exMes)} abono sig.</div>`;
+    } else if (totalPendiente===0) {
+      balanceHtml = `<div class="costo-balance-val ok">✓</div>`;
     } else {
-      estado = 'PENDIENTE'; dotClass = 'pendiente';
+      balanceHtml = `<div class="costo-balance-val debe">−${fmtCOP(totalPendiente)}</div>`;
     }
 
-    if (deudaAnt > 0) alertas.push({ nombre: cf.nombre, monto: deudaAnt });
-
-    // Build info tags
-    let infoTags = '';
-    if (totalPendiente > 0) {
-      infoTags += `<div class="costo-pendiente-val">debe: ${fmtCOP(totalPendiente)}</div>`;
-    } else {
-      infoTags += `<div class="costo-pendiente-val" style="color:var(--green)">✓</div>`;
-    }
-    if (deudaAnt > 0) {
-      infoTags += `<div class="costo-pendiente-val" style="color:var(--gold);font-size:11px">+${fmtCOP(deudaAnt)} mes ant.</div>`;
-    }
-    if (exMes > 0) {
-      infoTags += `<div class="costo-pendiente-val" style="color:var(--accent);font-size:11px">↑ ${fmtCOP(exMes)} abono mes sig.</div>`;
-    } else if (exAnt > 0 && pendienteMes === 0 && deudaAnt === 0) {
-      // Credit from prev month covers this month too
-      infoTags += `<div class="costo-pendiente-val" style="color:var(--accent);font-size:11px">↑ ${fmtCOP(exAnt)} crédito aplicado</div>`;
-    }
-
-    return `<div class="costo-row">
+    return `<div class="costo-row" onclick="openCostoModal(${idx})">
       <div class="costo-dot ${dotClass}"></div>
       <div class="costo-info">
         <div class="costo-nombre">${cf.nombre}</div>
         <div class="costo-sub">${estado}</div>
       </div>
       <div class="costo-monto">
-        <div class="costo-esperado">${fmtCOP(mensualDisplay)}</div>
-        ${infoTags}
+        <div class="costo-pagado-val">${fmtCOP(mensualDisplay)}</div>
+        ${balanceHtml}
       </div>
     </div>`;
   }).join('');
 
-  // Alert banner for carried debts
   let alertHtml = '';
-  if (alertas.length > 0) {
+  if (alertas.length>0) {
     const lista = alertas.map(a=>`${a.nombre}: ${fmtCOP(a.monto)}`).join(' · ');
-    const total = alertas.reduce((s,a)=>s+a.monto, 0);
+    const total = alertas.reduce((s,a)=>s+a.monto,0);
     alertHtml = `
       <div style="margin-top:14px;padding:12px 14px;background:rgba(240,192,96,0.1);
                   border:1.5px solid var(--gold);border-radius:10px;">
         <div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:4px">
-          ⚠ Deudas del mes anterior — prioridad de pago
+          ⚠ Deudas del mes anterior — priorizar
         </div>
         <div style="font-size:12px;color:var(--text2);line-height:1.6">${lista}</div>
         <div style="font-size:13px;font-weight:700;color:var(--gold);margin-top:6px">
@@ -958,9 +1033,110 @@ function renderCostosFijos() {
         </div>
       </div>`;
   }
-
   document.getElementById('costosFijosBody').innerHTML = html + alertHtml;
 }
+
+// ─── COSTO MODAL ─────────────────────────────────────────────────────────────
+function openCostoModal(idx) {
+  const cf         = COSTOS_FIJOS_DEF[idx];
+  const now        = new Date();
+  const allEgresos = state.rows.filter(r=>r.ie==='EGRESO');
+  const mesRows    = allEgresos.filter(r=>{
+    const d=parseFecha(r.fecha);
+    return d&&d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
+  });
+  const kw        = cf.keyword.toUpperCase();
+  const pagadoMes = mesRows.filter(r=>r.desc.toUpperCase()===kw).reduce((s,r)=>s+Math.abs(r.valor),0);
+  const balance   = calcBalanceAnterior(cf, allEgresos, now);
+  const deudaAnt  = balance.deuda;
+  const exAnt     = balance.excedente;
+
+  let mensualDisplay;
+  if (cf.tipo==='lili') mensualDisplay = liliMensualActual();
+  else                  mensualDisplay = cf.mensual||0;
+
+  const totalEsperado = mensualDisplay + deudaAnt;
+  const totalRecibido = pagadoMes + exAnt;
+  const excedente     = Math.max(0, totalRecibido - totalEsperado);
+  const pendiente     = Math.max(0, totalEsperado - totalRecibido);
+
+  const nomMeses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const prev = prevMonthOf(now);
+
+  document.getElementById('modalTitle').textContent   = cf.nombre;
+  document.getElementById('modalPeriodo').textContent = `${nomMeses[now.getMonth()]} ${now.getFullYear()}`;
+
+  // Progress bar
+  const maxBar    = Math.max(totalRecibido, totalEsperado) * 1.08 || 1;
+  const pctBase   = mensualDisplay / maxBar * 100;
+  const pctPrev   = deudaAnt / maxBar * 100;
+  const pctPaid   = Math.min(totalRecibido, totalEsperado) / maxBar * 100;
+  const pctOver   = excedente / maxBar * 100;
+  const pctTarget = totalEsperado / maxBar * 100;
+
+  document.getElementById('modalProgWrap').innerHTML = `
+    <div class="prog-label">
+      <span>Pagado: <strong style="color:var(--green)">${fmtCOP(totalRecibido)}</strong></span>
+      <span>Meta: <strong>${fmtCOP(totalEsperado)}</strong></span>
+    </div>
+    <div class="prog-track" style="height:14px;border-radius:7px">
+      ${deudaAnt>0?`<div class="prog-bar-prev" style="width:${Math.min(pctBase+pctPrev,100)}%"></div>`:''}
+      <div class="prog-bar-base" style="width:${Math.min(pctBase,100)}%"></div>
+      <div class="prog-bar-paid" style="width:${Math.min(pctPaid,100)}%"></div>
+      ${excedente>0?`<div class="prog-bar-over" style="left:${pctTarget}%;width:${pctOver}%"></div>`:''}
+      <div class="prog-target-line" style="left:${Math.min(pctTarget,98)}%"></div>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:10px;color:var(--text3);margin-top:6px">
+      <span style="color:var(--green)">■ Pagado</span>
+      ${deudaAnt>0?`<span style="color:var(--gold)">■ Mes ant.</span>`:''}
+      ${excedente>0?`<span style="color:var(--accent)">■ Excedente</span>`:''}
+    </div>`;
+
+  // Breakdown
+  let bd = '';
+  bd += mRow('Salario / valor mensual', fmtCOP(mensualDisplay));
+  if (cf.tipo==='lili') bd += mRow(`  (${fridaysInMonth(now.getFullYear(),now.getMonth())} viernes × 260.000)`, '', 'var(--text3)', false, true);
+  if (deudaAnt>0) bd += mRow(`+ Deuda ${nomMeses[prev.month]}`, fmtCOP(deudaAnt), 'var(--gold)');
+  if (exAnt>0)    bd += mRow(`− Crédito de ${nomMeses[prev.month]}`, fmtCOP(exAnt), 'var(--accent)');
+  bd += `<div style="height:1px;background:var(--border2);margin:8px 0"></div>`;
+  bd += mRow('Total pagado este mes', fmtCOP(pagadoMes), 'var(--green)');
+  if (exAnt>0) bd += mRow('Crédito aplicado', fmtCOP(exAnt), 'var(--accent)');
+  bd += mRow('Total aplicado', fmtCOP(totalRecibido), 'var(--green)', true);
+  if (excedente>0)  bd += mRow('↑ Abono mes siguiente', fmtCOP(excedente), 'var(--accent)', true);
+  else if (pendiente>0) bd += mRow('Pendiente por pagar', fmtCOP(pendiente), 'var(--red)', true);
+  document.getElementById('modalBreakdown').innerHTML = bd;
+
+  // Movements
+  const movs = mesRows.filter(r=>r.desc.toUpperCase()===kw)
+    .sort((a,b)=>{const da=parseFecha(a.fecha),db=parseFecha(b.fecha); return da-db;});
+  const movsTitle = document.getElementById('modalMovsTitle');
+  movsTitle.style.display = 'block';
+  document.getElementById('modalMovs').innerHTML = movs.length>0
+    ? movs.map(r=>`
+      <div class="modal-mov-item">
+        <div><div style="font-size:13px;font-weight:500">${fmtFecha(r.fecha)}</div>
+             <div class="modal-mov-medio">${r.medio}</div></div>
+        <div class="modal-mov-val">${fmtCOP(Math.abs(r.valor))}</div>
+      </div>`).join('')
+    : '<p style="color:var(--text3);font-size:13px;text-align:center;padding:12px 0">Sin pagos este mes</p>';
+
+  document.getElementById('costoModalOverlay').classList.add('open');
+}
+
+function mRow(label, value, color='var(--text2)', bold=false, small=false) {
+  if (small) return `<div style="font-size:11px;color:${color};padding:2px 0;text-align:right">${label}</div>`;
+  return `<div class="modal-row">
+    <span class="modal-row-label">${label}</span>
+    <span class="modal-row-val" style="color:${color};${bold?'font-size:15px':''}">${value}</span>
+  </div>`;
+}
+
+function closeCostoModal(e) {
+  if (e.target===document.getElementById('costoModalOverlay'))
+    document.getElementById('costoModalOverlay').classList.remove('open');
+}
+
 
 function renderMovimientos() {
   const sorted = [...state.rows].reverse().slice(0, 80);
