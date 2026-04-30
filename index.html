@@ -562,16 +562,53 @@ const GLOSARIO = [
 const MEDIOS  = ['BANCOLOMBIA','EFECTIVO','NU','NEQUI','DAVIVIENDA','DAVIPLATA'];
 const TIPOS   = ['APUNAYNI','SALVAWASI','OPERATIVO','SALARIOS','TIENDA','REEMBOLSO','INTER CUENTA'];
 const COSTOS_FIJOS_DEF = [
-  { nombre:'INTERNET',          mensual: 180000,   keyword:'INTERNET' },
-  { nombre:'GAS',               mensual: 109000,   keyword:'GAS' },
-  { nombre:'SERVICIOS EPM',     mensual: 68000,    keyword:'SERVICIOS EPM' },
-  { nombre:'SEGUROS',           mensual: 113050,   keyword:'SEGUROS' },
-  { nombre:'CUOTA DE MANEJO',   mensual: 15000,    keyword:'CUOTA DE MANEJO' },
-  { nombre:'CONTABILIDAD',      mensual: 200000,   keyword:'CONTABILIDAD', acumula: true },
-  { nombre:'SALARIO LILIANA',   mensual: 1040000,  keyword:'SALARIO-LILIANA', acumula: true },
-  { nombre:'SALARIO ALEJANDRO', mensual: 1900000,  keyword:'SALARIO-ALEJANDRO', acumula: true },
+  { nombre:'INTERNET',          mensual: 180000,  keyword:'INTERNET' },
+  { nombre:'GAS',               mensual: 109000,  keyword:'GAS' },
+  { nombre:'SERVICIOS EPM',     mensual: 68000,   keyword:'SERVICIOS EPM' },
+  { nombre:'SEGUROS',           mensual: 113050,  keyword:'SEGUROS' },
+  { nombre:'CUOTA DE MANEJO',   mensual: 15000,   keyword:'CUOTA DE MANEJO' },
+  { nombre:'CONTABILIDAD',      mensual: 200000,  keyword:'CONTABILIDAD',      acumula: true },
+  { nombre:'SALARIO LILIANA',   mensual: null,     keyword:'SALARIO-LILIANA',   acumula: true, tipo:'lili' },
+  { nombre:'SALARIO ALEJANDRO', mensual: 1900000, keyword:'SALARIO-ALEJANDRO', acumula: true, tipo:'alejo' },
 ];
 const INICIO_MES = new Date(2026, 1, 1); // Feb 2026
+
+// ─── SALARY HELPERS ───────────────────────────────────────────────────────────
+function fridaysInMonth(year, month) {
+  // month is 0-indexed (JS Date)
+  let count = 0;
+  const d = new Date(year, month, 1);
+  while (d.getMonth() === month) {
+    if (d.getDay() === 5) count++; // Friday = 5
+    d.setDate(d.getDate() + 1);
+  }
+  return count;
+}
+
+// Total expected for Liliana from INICIO_MES up to and including (year, month 0-indexed)
+function liliTotalEsperado(upToYear, upToMonth) {
+  let total = 0;
+  let d = new Date(INICIO_MES);
+  while (d.getFullYear() < upToYear || (d.getFullYear() === upToYear && d.getMonth() <= upToMonth)) {
+    total += fridaysInMonth(d.getFullYear(), d.getMonth()) * 260000;
+    d.setMonth(d.getMonth() + 1);
+  }
+  return total;
+}
+
+// Total expected for Alejandro from INICIO_MES up to and including (year, month 0-indexed)
+// Accumulates: if paid more than expected in a month, the excess reduces future pending
+function alejoTotalEsperado(upToYear, upToMonth) {
+  const months = (upToYear - INICIO_MES.getFullYear()) * 12
+               + (upToMonth - INICIO_MES.getMonth()) + 1;
+  return Math.max(0, months) * 1900000;
+}
+
+// Lili expected for current month only (for display)
+function liliMensualActual() {
+  const now = new Date();
+  return fridaysInMonth(now.getFullYear(), now.getMonth()) * 260000;
+}
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let state = {
@@ -657,7 +694,7 @@ async function syncData() {
   document.getElementById('syncBtn').classList.add('syncing');
   try {
     const range = encodeURIComponent('FLUJO!A4:H2000');
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${state.sheetId}/values/${range}?key=${state.apiKey}`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${state.sheetId}/values/${range}?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING&key=${state.apiKey}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
@@ -747,45 +784,73 @@ function renderMesResumen() {
 
 function renderCostosFijos() {
   const now = new Date();
-  const mesesTranscurridos = monthDiff(INICIO_MES, now) + 1;
 
+  // Rows paid in current month
   const mesRows = state.rows.filter(r => {
     const d = parseFecha(r.fecha);
     return d && d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear() && r.ie==='EGRESO';
   });
-  const allEgresos = state.rows.filter(r=>r.ie==='EGRESO');
+  const allEgresos = state.rows.filter(r => r.ie==='EGRESO');
 
   const html = COSTOS_FIJOS_DEF.map(cf => {
-    let pagado, pendiente;
-    if (cf.acumula) {
-      const totalPagado = allEgresos
-        .filter(r => r.desc.toUpperCase() === cf.keyword.toUpperCase())
-        .reduce((s,r) => s + Math.abs(r.valor), 0);
-      const totalEsperado = cf.mensual * mesesTranscurridos;
-      pagado = mesRows.filter(r=>r.desc.toUpperCase()===cf.keyword.toUpperCase()).reduce((s,r)=>s+Math.abs(r.valor),0);
+    const kw = cf.keyword.toUpperCase();
+    let mensualDisplay, pendiente, pagadoMes;
+
+    pagadoMes = mesRows
+      .filter(r => r.desc.toUpperCase() === kw)
+      .reduce((s,r) => s + Math.abs(r.valor), 0);
+
+    if (cf.tipo === 'lili') {
+      // Liliana: real Friday count per month, accumulates
+      mensualDisplay = liliMensualActual();
+      const totalPagado   = allEgresos.filter(r=>r.desc.toUpperCase()===kw).reduce((s,r)=>s+Math.abs(r.valor),0);
+      const totalEsperado = liliTotalEsperado(now.getFullYear(), now.getMonth());
       pendiente = Math.max(0, totalEsperado - totalPagado);
+
+    } else if (cf.tipo === 'alejo') {
+      // Alejandro: fixed 1.9M/month, accumulates; excess payments reduce future pending
+      mensualDisplay = 1900000;
+      const totalPagado   = allEgresos.filter(r=>r.desc.toUpperCase()===kw).reduce((s,r)=>s+Math.abs(r.valor),0);
+      const totalEsperado = alejoTotalEsperado(now.getFullYear(), now.getMonth());
+      // If paid more than expected, pendiente = 0 (excess already accounted for)
+      pendiente = Math.max(0, totalEsperado - totalPagado);
+
+    } else if (cf.acumula) {
+      // Other accumulating (Contabilidad)
+      mensualDisplay = cf.mensual;
+      const meses = monthDiff(INICIO_MES, now) + 1;
+      const totalPagado   = allEgresos.filter(r=>r.desc.toUpperCase()===kw).reduce((s,r)=>s+Math.abs(r.valor),0);
+      const totalEsperado = cf.mensual * meses;
+      pendiente = Math.max(0, totalEsperado - totalPagado);
+
     } else {
-      pagado = mesRows.filter(r=>r.desc.toUpperCase()===cf.keyword.toUpperCase()).reduce((s,r)=>s+Math.abs(r.valor),0);
-      pendiente = Math.max(0, cf.mensual - pagado);
+      // Regular monthly cost — resets each month
+      mensualDisplay = cf.mensual;
+      pendiente = Math.max(0, cf.mensual - pagadoMes);
     }
-    const pct = cf.mensual > 0 ? Math.min(1, pagado/cf.mensual) : 0;
+
     let estado, dotClass;
-    if (pendiente === 0)       { estado='PAGADO';    dotClass='pagado'; }
-    else if (pagado > 0)       { estado='PARCIAL';   dotClass='parcial'; }
-    else                        { estado='PENDIENTE'; dotClass='pendiente'; }
-    
+    if (pendiente === 0)      { estado='PAGADO';    dotClass='pagado'; }
+    else if (pagadoMes > 0)   { estado='PARCIAL';   dotClass='parcial'; }
+    else                       { estado='PENDIENTE'; dotClass='pendiente'; }
+
+    const subLabel = cf.acumula
+      ? `${estado} · pendiente acumulado`
+      : estado;
+
     return `<div class="costo-row">
       <div class="costo-dot ${dotClass}"></div>
       <div class="costo-info">
         <div class="costo-nombre">${cf.nombre}</div>
-        <div class="costo-sub">${estado}${cf.acumula?' · acumulado':''}</div>
+        <div class="costo-sub">${subLabel}</div>
       </div>
       <div class="costo-monto">
-        <div class="costo-esperado">${fmtCOP(cf.mensual)}</div>
-        ${pendiente>0?`<div class="costo-pendiente-val">-${fmtCOP(pendiente)}</div>`:''}
+        <div class="costo-esperado">${fmtCOP(mensualDisplay)}</div>
+        ${pendiente>0 ? `<div class="costo-pendiente-val">debe: ${fmtCOP(pendiente)}</div>` : '<div class="costo-pendiente-val" style="color:var(--green)">✓ al día</div>'}
       </div>
     </div>`;
   }).join('');
+
   document.getElementById('costosFijosBody').innerHTML = html;
 }
 
@@ -1024,7 +1089,7 @@ function showToast(msg, type='') {
 }
 </script>
 
-<!-- PWA: fix for number parsing (UNFORMATTED_VALUE already applied in syncData) -->
+<!-- manifest.json is external -->
 
 </body>
 </html>
