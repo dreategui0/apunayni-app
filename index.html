@@ -742,6 +742,9 @@ const GLOSARIO = [
 
 const MEDIOS  = ['BANCOLOMBIA','EFECTIVO','NU','NEQUI','DAVIVIENDA','DAVIPLATA'];
 const TIPOS   = ['APUNAYNI','SALVAWASI','OPERATIVO','SALARIOS','TIENDA','REEMBOLSO','INTER CUENTA'];
+// ─── COSTOS FIJOS ── Para agregar: añade una línea. Para eliminar: borra la línea. ──
+// tipos: 'fixed'=monto exacto acumula, 'variable'=cualquier pago cuenta, 
+//        'auto'=siempre pagado, 'accum'=acumula histórico, 'lili', 'alejo'
 const COSTOS_FIJOS_DEF = [
   { nombre:'INTERNET',          mensual: 180000,  keyword:'INTERNET',         tipo:'fixed'    },
   { nombre:'GAS',               mensual: 109000,  keyword:'GAS',              tipo:'variable' },
@@ -798,12 +801,43 @@ function calcBalanceAnterior(cf, allEgresos, now) {
   const kw   = cf.keyword.toUpperCase();
 
   if (cf.tipo === 'fixed') {
-    const pagado = pagadoEnMes(allEgresos, kw, prev.year, prev.month);
-    const diff   = pagado - cf.mensual;
+    // Start accumulation from the month of the FIRST recorded payment for this item.
+    // This way, months before tracking started don't generate phantom debt.
+    const inicioMesActual = new Date(now.getFullYear(), now.getMonth(), 1);
+    const allPayments = allEgresos.filter(r => r.desc.toUpperCase()===kw);
+    if (allPayments.length === 0) return { deuda: 0, excedente: 0 };
+    // Find earliest payment date
+    const fechas = allPayments.map(r => parseFecha(r.fecha)).filter(Boolean);
+    const primerPago = new Date(Math.min(...fechas));
+    const inicioTracking = new Date(primerPago.getFullYear(), primerPago.getMonth(), 1);
+    // Count months from inicioTracking to start of current month
+    let cursor = new Date(inicioTracking);
+    let esperadoHist = 0;
+    while (cursor < inicioMesActual) {
+      esperadoHist += cf.mensual;
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+    const pagadoHist = allPayments
+      .filter(r => { const d = parseFecha(r.fecha); return d && d < inicioMesActual; })
+      .reduce((s,r) => s+Math.abs(r.valor), 0);
+    const diff = pagadoHist - esperadoHist;
     return diff >= 0 ? { deuda: 0, excedente: diff } : { deuda: -diff, excedente: 0 };
 
   } else if (cf.tipo === 'variable') {
-    return { deuda: anyPaidInMes(allEgresos, kw, prev.year, prev.month) ? 0 : cf.mensual, excedente: 0 };
+    // Start from first recorded payment month, same logic as fixed.
+    const inicioMesActual = new Date(now.getFullYear(), now.getMonth(), 1);
+    const allPayments = allEgresos.filter(r => r.desc.toUpperCase()===kw);
+    if (allPayments.length === 0) return { deuda: 0, excedente: 0 };
+    const fechas = allPayments.map(r => parseFecha(r.fecha)).filter(Boolean);
+    const primerPago = new Date(Math.min(...fechas));
+    let cursor = new Date(primerPago.getFullYear(), primerPago.getMonth(), 1);
+    let deudaAcum = 0;
+    while (cursor < inicioMesActual) {
+      const y = cursor.getFullYear(), m = cursor.getMonth();
+      if (!anyPaidInMes(allEgresos, kw, y, m)) deudaAcum += cf.mensual;
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+    return deudaAcum > 0 ? { deuda: deudaAcum, excedente: 0 } : { deuda: 0, excedente: 0 };
 
   } else if (cf.tipo === 'auto') {
     return { deuda: 0, excedente: 0 };
@@ -1407,8 +1441,6 @@ function showScreen(idx) {
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 function fmtCOP(v) {
-  const abs = Math.abs(v);
-  if (abs >= 1000000) return (v/1000000).toFixed(1).replace('.0','')+'M';
   return new Intl.NumberFormat('es-CO').format(Math.round(v));
 }
 
