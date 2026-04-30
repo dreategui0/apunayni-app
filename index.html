@@ -7,8 +7,6 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Apunayni">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Apunayni · Caja</title>
 
 <!-- Google Fonts -->
@@ -375,8 +373,12 @@ html, body {
     <input id="sheetIdInput" class="form-input" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms" style="margin-bottom:0">
   </div>
   <div class="setup-step">
-    <div class="setup-step-label">② API Key de Google</div>
+    <div class="setup-step-label">② API Key de Google (para leer)</div>
     <input id="apiKeyInput" class="form-input" placeholder="AIzaSy..." style="margin-bottom:0">
+  </div>
+  <div class="setup-step">
+    <div class="setup-step-label">③ URL del Apps Script (para escribir)</div>
+    <input id="scriptUrlInput" class="form-input" placeholder="https://script.google.com/macros/s/.../exec" style="margin-bottom:0">
   </div>
   <button class="submit-btn" onclick="saveConfig()" style="margin-top:24px">Conectar →</button>
   <p style="font-size:12px;color:var(--text3);text-align:center;margin-top:16px;line-height:1.6">
@@ -490,6 +492,10 @@ html, body {
           <span class="config-val" id="cfgApiKey">—</span>
         </div>
         <div class="config-row">
+          <span class="config-label">Apps Script (escritura)</span>
+          <span class="config-val" id="cfgScriptUrl">—</span>
+        </div>
+        <div class="config-row">
           <span class="config-label">Última sincronización</span>
           <span class="config-val" id="cfgLastSync">—</span>
         </div>
@@ -562,53 +568,16 @@ const GLOSARIO = [
 const MEDIOS  = ['BANCOLOMBIA','EFECTIVO','NU','NEQUI','DAVIVIENDA','DAVIPLATA'];
 const TIPOS   = ['APUNAYNI','SALVAWASI','OPERATIVO','SALARIOS','TIENDA','REEMBOLSO','INTER CUENTA'];
 const COSTOS_FIJOS_DEF = [
-  { nombre:'INTERNET',          mensual: 180000,  keyword:'INTERNET' },
-  { nombre:'GAS',               mensual: 109000,  keyword:'GAS' },
-  { nombre:'SERVICIOS EPM',     mensual: 68000,   keyword:'SERVICIOS EPM' },
-  { nombre:'SEGUROS',           mensual: 113050,  keyword:'SEGUROS' },
-  { nombre:'CUOTA DE MANEJO',   mensual: 15000,   keyword:'CUOTA DE MANEJO' },
-  { nombre:'CONTABILIDAD',      mensual: 200000,  keyword:'CONTABILIDAD',      acumula: true },
-  { nombre:'SALARIO LILIANA',   mensual: null,     keyword:'SALARIO-LILIANA',   acumula: true, tipo:'lili' },
-  { nombre:'SALARIO ALEJANDRO', mensual: 1900000, keyword:'SALARIO-ALEJANDRO', acumula: true, tipo:'alejo' },
+  { nombre:'INTERNET',          mensual: 180000,   keyword:'INTERNET' },
+  { nombre:'GAS',               mensual: 109000,   keyword:'GAS' },
+  { nombre:'SERVICIOS EPM',     mensual: 68000,    keyword:'SERVICIOS EPM' },
+  { nombre:'SEGUROS',           mensual: 113050,   keyword:'SEGUROS' },
+  { nombre:'CUOTA DE MANEJO',   mensual: 15000,    keyword:'CUOTA DE MANEJO' },
+  { nombre:'CONTABILIDAD',      mensual: 200000,   keyword:'CONTABILIDAD', acumula: true },
+  { nombre:'SALARIO LILIANA',   mensual: 1040000,  keyword:'SALARIO-LILIANA', acumula: true },
+  { nombre:'SALARIO ALEJANDRO', mensual: 1900000,  keyword:'SALARIO-ALEJANDRO', acumula: true },
 ];
 const INICIO_MES = new Date(2026, 1, 1); // Feb 2026
-
-// ─── SALARY HELPERS ───────────────────────────────────────────────────────────
-function fridaysInMonth(year, month) {
-  // month is 0-indexed (JS Date)
-  let count = 0;
-  const d = new Date(year, month, 1);
-  while (d.getMonth() === month) {
-    if (d.getDay() === 5) count++; // Friday = 5
-    d.setDate(d.getDate() + 1);
-  }
-  return count;
-}
-
-// Total expected for Liliana from INICIO_MES up to and including (year, month 0-indexed)
-function liliTotalEsperado(upToYear, upToMonth) {
-  let total = 0;
-  let d = new Date(INICIO_MES);
-  while (d.getFullYear() < upToYear || (d.getFullYear() === upToYear && d.getMonth() <= upToMonth)) {
-    total += fridaysInMonth(d.getFullYear(), d.getMonth()) * 260000;
-    d.setMonth(d.getMonth() + 1);
-  }
-  return total;
-}
-
-// Total expected for Alejandro from INICIO_MES up to and including (year, month 0-indexed)
-// Accumulates: if paid more than expected in a month, the excess reduces future pending
-function alejoTotalEsperado(upToYear, upToMonth) {
-  const months = (upToYear - INICIO_MES.getFullYear()) * 12
-               + (upToMonth - INICIO_MES.getMonth()) + 1;
-  return Math.max(0, months) * 1900000;
-}
-
-// Lili expected for current month only (for display)
-function liliMensualActual() {
-  const now = new Date();
-  return fridaysInMonth(now.getFullYear(), now.getMonth()) * 260000;
-}
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let state = {
@@ -673,18 +642,22 @@ function initApp() {
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 function saveConfig() {
-  const sid = document.getElementById('sheetIdInput').value.trim();
-  const key = document.getElementById('apiKeyInput').value.trim();
-  if (!sid || !key) { showToast('Completa ambos campos', 'error'); return; }
+  const sid    = document.getElementById('sheetIdInput').value.trim();
+  const key    = document.getElementById('apiKeyInput').value.trim();
+  const script = document.getElementById('scriptUrlInput').value.trim();
+  if (!sid || !key) { showToast('Completa Sheet ID y API Key', 'error'); return; }
   state.sheetId = sid; state.apiKey = key;
-  localStorage.setItem('sheetId', sid); localStorage.setItem('apiKey', key);
+  localStorage.setItem('sheetId', sid);
+  localStorage.setItem('apiKey', key);
+  if (script) localStorage.setItem('scriptUrl', script);
   initApp();
 }
 
 function showSetup() {
   document.getElementById('setupScreen').style.display = 'flex';
-  document.getElementById('sheetIdInput').value = state.sheetId;
-  document.getElementById('apiKeyInput').value  = state.apiKey;
+  document.getElementById('sheetIdInput').value   = state.sheetId;
+  document.getElementById('apiKeyInput').value    = state.apiKey;
+  document.getElementById('scriptUrlInput').value = localStorage.getItem('scriptUrl') || '';
 }
 
 // ─── GOOGLE SHEETS API ────────────────────────────────────────────────────────
@@ -694,7 +667,7 @@ async function syncData() {
   document.getElementById('syncBtn').classList.add('syncing');
   try {
     const range = encodeURIComponent('FLUJO!A4:H2000');
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${state.sheetId}/values/${range}?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING&key=${state.apiKey}`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${state.sheetId}/values/${range}?key=${state.apiKey}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
@@ -717,20 +690,25 @@ async function syncData() {
 }
 
 async function appendRow(rowData) {
-  // rowData: [fecha, valor, desc, medio, tipo, ie, '', notas]
-  const range = encodeURIComponent('FLUJO!A:H');
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${state.sheetId}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS&key=${state.apiKey}`;
-  const body = { values: [rowData] };
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error?.message || `HTTP ${res.status}`);
+  // Uses Google Apps Script Web App as proxy for writing
+  // (API Key only allows reading; writing requires OAuth or Apps Script)
+  const scriptUrl = localStorage.getItem('scriptUrl');
+  if (!scriptUrl) {
+    throw new Error('Falta la URL del Apps Script. Ve a Config y agrégala.');
   }
-  return res.json();
+  const params = new URLSearchParams({
+    sheetId: state.sheetId,
+    row: JSON.stringify(rowData)
+  });
+  const url = `${scriptUrl}?${params.toString()}`;
+  const res = await fetch(url, { method: 'GET' });
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch(e) { data = { status: text }; }
+  if (data.status !== 'ok') {
+    throw new Error(data.error || 'Error al guardar en el Sheet');
+  }
+  return data;
 }
 
 // ─── RENDER ───────────────────────────────────────────────────────────────────
@@ -784,73 +762,45 @@ function renderMesResumen() {
 
 function renderCostosFijos() {
   const now = new Date();
+  const mesesTranscurridos = monthDiff(INICIO_MES, now) + 1;
 
-  // Rows paid in current month
   const mesRows = state.rows.filter(r => {
     const d = parseFecha(r.fecha);
     return d && d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear() && r.ie==='EGRESO';
   });
-  const allEgresos = state.rows.filter(r => r.ie==='EGRESO');
+  const allEgresos = state.rows.filter(r=>r.ie==='EGRESO');
 
   const html = COSTOS_FIJOS_DEF.map(cf => {
-    const kw = cf.keyword.toUpperCase();
-    let mensualDisplay, pendiente, pagadoMes;
-
-    pagadoMes = mesRows
-      .filter(r => r.desc.toUpperCase() === kw)
-      .reduce((s,r) => s + Math.abs(r.valor), 0);
-
-    if (cf.tipo === 'lili') {
-      // Liliana: real Friday count per month, accumulates
-      mensualDisplay = liliMensualActual();
-      const totalPagado   = allEgresos.filter(r=>r.desc.toUpperCase()===kw).reduce((s,r)=>s+Math.abs(r.valor),0);
-      const totalEsperado = liliTotalEsperado(now.getFullYear(), now.getMonth());
+    let pagado, pendiente;
+    if (cf.acumula) {
+      const totalPagado = allEgresos
+        .filter(r => r.desc.toUpperCase() === cf.keyword.toUpperCase())
+        .reduce((s,r) => s + Math.abs(r.valor), 0);
+      const totalEsperado = cf.mensual * mesesTranscurridos;
+      pagado = mesRows.filter(r=>r.desc.toUpperCase()===cf.keyword.toUpperCase()).reduce((s,r)=>s+Math.abs(r.valor),0);
       pendiente = Math.max(0, totalEsperado - totalPagado);
-
-    } else if (cf.tipo === 'alejo') {
-      // Alejandro: fixed 1.9M/month, accumulates; excess payments reduce future pending
-      mensualDisplay = 1900000;
-      const totalPagado   = allEgresos.filter(r=>r.desc.toUpperCase()===kw).reduce((s,r)=>s+Math.abs(r.valor),0);
-      const totalEsperado = alejoTotalEsperado(now.getFullYear(), now.getMonth());
-      // If paid more than expected, pendiente = 0 (excess already accounted for)
-      pendiente = Math.max(0, totalEsperado - totalPagado);
-
-    } else if (cf.acumula) {
-      // Other accumulating (Contabilidad)
-      mensualDisplay = cf.mensual;
-      const meses = monthDiff(INICIO_MES, now) + 1;
-      const totalPagado   = allEgresos.filter(r=>r.desc.toUpperCase()===kw).reduce((s,r)=>s+Math.abs(r.valor),0);
-      const totalEsperado = cf.mensual * meses;
-      pendiente = Math.max(0, totalEsperado - totalPagado);
-
     } else {
-      // Regular monthly cost — resets each month
-      mensualDisplay = cf.mensual;
-      pendiente = Math.max(0, cf.mensual - pagadoMes);
+      pagado = mesRows.filter(r=>r.desc.toUpperCase()===cf.keyword.toUpperCase()).reduce((s,r)=>s+Math.abs(r.valor),0);
+      pendiente = Math.max(0, cf.mensual - pagado);
     }
-
+    const pct = cf.mensual > 0 ? Math.min(1, pagado/cf.mensual) : 0;
     let estado, dotClass;
-    if (pendiente === 0)      { estado='PAGADO';    dotClass='pagado'; }
-    else if (pagadoMes > 0)   { estado='PARCIAL';   dotClass='parcial'; }
-    else                       { estado='PENDIENTE'; dotClass='pendiente'; }
-
-    const subLabel = cf.acumula
-      ? `${estado} · pendiente acumulado`
-      : estado;
-
+    if (pendiente === 0)       { estado='PAGADO';    dotClass='pagado'; }
+    else if (pagado > 0)       { estado='PARCIAL';   dotClass='parcial'; }
+    else                        { estado='PENDIENTE'; dotClass='pendiente'; }
+    
     return `<div class="costo-row">
       <div class="costo-dot ${dotClass}"></div>
       <div class="costo-info">
         <div class="costo-nombre">${cf.nombre}</div>
-        <div class="costo-sub">${subLabel}</div>
+        <div class="costo-sub">${estado}${cf.acumula?' · acumulado':''}</div>
       </div>
       <div class="costo-monto">
-        <div class="costo-esperado">${fmtCOP(mensualDisplay)}</div>
-        ${pendiente>0 ? `<div class="costo-pendiente-val">debe: ${fmtCOP(pendiente)}</div>` : '<div class="costo-pendiente-val" style="color:var(--green)">✓ al día</div>'}
+        <div class="costo-esperado">${fmtCOP(cf.mensual)}</div>
+        ${pendiente>0?`<div class="costo-pendiente-val">-${fmtCOP(pendiente)}</div>`:''}
       </div>
     </div>`;
   }).join('');
-
   document.getElementById('costosFijosBody').innerHTML = html;
 }
 
@@ -889,8 +839,11 @@ function renderMovimientos() {
 }
 
 function renderConfig() {
-  document.getElementById('cfgSheetId').textContent = state.sheetId ? state.sheetId.slice(0,20)+'...' : '—';
-  document.getElementById('cfgApiKey').textContent  = state.apiKey  ? state.apiKey.slice(0,12)+'...'  : '—';
+  const scriptUrl = localStorage.getItem('scriptUrl') || '';
+  document.getElementById('cfgSheetId').textContent  = state.sheetId  ? state.sheetId.slice(0,20)+'...'  : '—';
+  document.getElementById('cfgApiKey').textContent   = state.apiKey   ? state.apiKey.slice(0,12)+'...'   : '—';
+  document.getElementById('cfgScriptUrl').textContent= scriptUrl ? '✓ configurado' : '⚠ pendiente';
+  document.getElementById('cfgScriptUrl').style.color= scriptUrl ? 'var(--green)' : 'var(--red)';
   document.getElementById('cfgLastSync').textContent = state.lastSync ? fmtTime(state.lastSync) : '—';
 }
 
@@ -1089,7 +1042,25 @@ function showToast(msg, type='') {
 }
 </script>
 
-<!-- manifest.json is external -->
+<!-- PWA Manifest inline -->
+<script>
+const manifest = {
+  name: 'Apunayni · Caja',
+  short_name: 'Apunayni',
+  description: 'Registro de flujo de caja Apunayni',
+  start_url: '.',
+  display: 'standalone',
+  background_color: '#0a0a14',
+  theme_color: '#0a0a14',
+  icons: [{
+    src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230a0a14'/><text y='.9em' font-size='80' x='10'>🏡</text></svg>",
+    sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable'
+  }]
+};
+const blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
+const manifestUrl = URL.createObjectURL(blob);
+document.head.insertAdjacentHTML('beforeend', `<link rel="manifest" href="${manifestUrl}">`);
+</script>
 
 </body>
 </html>
