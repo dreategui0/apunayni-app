@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a0a14">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Apunayni">
@@ -568,16 +570,48 @@ const GLOSARIO = [
 const MEDIOS  = ['BANCOLOMBIA','EFECTIVO','NU','NEQUI','DAVIVIENDA','DAVIPLATA'];
 const TIPOS   = ['APUNAYNI','SALVAWASI','OPERATIVO','SALARIOS','TIENDA','REEMBOLSO','INTER CUENTA'];
 const COSTOS_FIJOS_DEF = [
-  { nombre:'INTERNET',          mensual: 180000,   keyword:'INTERNET' },
-  { nombre:'GAS',               mensual: 109000,   keyword:'GAS' },
-  { nombre:'SERVICIOS EPM',     mensual: 68000,    keyword:'SERVICIOS EPM' },
-  { nombre:'SEGUROS',           mensual: 113050,   keyword:'SEGUROS' },
-  { nombre:'CUOTA DE MANEJO',   mensual: 15000,    keyword:'CUOTA DE MANEJO' },
-  { nombre:'CONTABILIDAD',      mensual: 200000,   keyword:'CONTABILIDAD', acumula: true },
-  { nombre:'SALARIO LILIANA',   mensual: 1040000,  keyword:'SALARIO-LILIANA', acumula: true },
-  { nombre:'SALARIO ALEJANDRO', mensual: 1900000,  keyword:'SALARIO-ALEJANDRO', acumula: true },
+  { nombre:'INTERNET',          mensual: 180000,  keyword:'INTERNET' },
+  { nombre:'GAS',               mensual: 109000,  keyword:'GAS' },
+  { nombre:'SERVICIOS EPM',     mensual: 68000,   keyword:'SERVICIOS EPM' },
+  { nombre:'SEGUROS',           mensual: 113050,  keyword:'SEGUROS' },
+  { nombre:'CUOTA DE MANEJO',   mensual: 15000,   keyword:'CUOTA DE MANEJO' },
+  { nombre:'CONTABILIDAD',      mensual: 200000,  keyword:'CONTABILIDAD', acumula: true },
+  { nombre:'SALARIO LILIANA',   mensual: null,    keyword:'SALARIO-LILIANA',   tipo:'lili' },
+  { nombre:'SALARIO ALEJANDRO', mensual: 1900000, keyword:'SALARIO-ALEJANDRO', tipo:'alejo' },
 ];
 const INICIO_MES = new Date(2026, 1, 1); // Feb 2026
+
+// ─── FRIDAY / SALARY HELPERS ─────────────────────────────────────────────────
+function fridaysInMonth(year, month) {
+  // month is 0-indexed (JS). Returns exact count of Fridays.
+  // Uses: first Friday day = (5 - dayOfWeek(day1) + 7) % 7 + 1  (where Sun=0)
+  const day1WeekDay = new Date(year, month, 1).getDay(); // 0=Sun..6=Sat, Fri=5
+  const firstFri    = (5 - day1WeekDay + 7) % 7 + 1;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  return Math.floor((daysInMonth - firstFri) / 7) + 1;
+}
+
+function liliMensualActual() {
+  const n = new Date();
+  return fridaysInMonth(n.getFullYear(), n.getMonth()) * 260000;
+}
+
+function alejoDeudaMesesAnteriores(allEgresos) {
+  // Debt from months before the current month
+  const now     = new Date();
+  const inicioMesActual = new Date(now.getFullYear(), now.getMonth(), 1);
+  // Months elapsed before this month since Feb 2026
+  const mesesPrev = (now.getFullYear() - 2026) * 12 + now.getMonth() - 1; // Feb=0, Mar=1...
+  if (mesesPrev <= 0) return 0;
+  const esperadoPrev = 1900000 * mesesPrev;
+  const pagadoPrev = allEgresos
+    .filter(r => {
+      const d = parseFecha(r.fecha);
+      return d && d < inicioMesActual && r.desc.toUpperCase() === 'SALARIO-ALEJANDRO';
+    })
+    .reduce((s, r) => s + Math.abs(r.valor), 0);
+  return Math.max(0, esperadoPrev - pagadoPrev);
+}
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let state = {
@@ -667,7 +701,7 @@ async function syncData() {
   document.getElementById('syncBtn').classList.add('syncing');
   try {
     const range = encodeURIComponent('FLUJO!A4:H2000');
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${state.sheetId}/values/${range}?key=${state.apiKey}`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${state.sheetId}/values/${range}?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING&key=${state.apiKey}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
@@ -761,46 +795,70 @@ function renderMesResumen() {
 }
 
 function renderCostosFijos() {
-  const now = new Date();
-  const mesesTranscurridos = monthDiff(INICIO_MES, now) + 1;
-
-  const mesRows = state.rows.filter(r => {
+  const now     = new Date();
+  const allEgresos = state.rows.filter(r => r.ie === 'EGRESO');
+  const mesRows    = allEgresos.filter(r => {
     const d = parseFecha(r.fecha);
-    return d && d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear() && r.ie==='EGRESO';
+    return d && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
-  const allEgresos = state.rows.filter(r=>r.ie==='EGRESO');
+
+  const alejoDeuda = alejoDeudaMesesAnteriores(allEgresos);
 
   const html = COSTOS_FIJOS_DEF.map(cf => {
-    let pagado, pendiente;
-    if (cf.acumula) {
-      const totalPagado = allEgresos
-        .filter(r => r.desc.toUpperCase() === cf.keyword.toUpperCase())
-        .reduce((s,r) => s + Math.abs(r.valor), 0);
-      const totalEsperado = cf.mensual * mesesTranscurridos;
-      pagado = mesRows.filter(r=>r.desc.toUpperCase()===cf.keyword.toUpperCase()).reduce((s,r)=>s+Math.abs(r.valor),0);
-      pendiente = Math.max(0, totalEsperado - totalPagado);
+    const kw = cf.keyword.toUpperCase();
+    const pagadoMes = mesRows
+      .filter(r => r.desc.toUpperCase() === kw)
+      .reduce((s, r) => s + Math.abs(r.valor), 0);
+
+    let mensualDisplay, pendiente, deudaAnt = 0, extraInfo = '';
+
+    if (cf.tipo === 'lili') {
+      mensualDisplay = liliMensualActual();
+      pendiente      = Math.max(0, mensualDisplay - pagadoMes);
+      // Lili: user confirmed starts each month clean
+      deudaAnt = 0;
+
+    } else if (cf.tipo === 'alejo') {
+      mensualDisplay = 1900000;
+      pendiente      = Math.max(0, mensualDisplay - pagadoMes);
+      deudaAnt       = alejoDeuda;
+      if (deudaAnt > 0) {
+        extraInfo = `<div class="costo-pendiente-val" style="color:var(--gold)">+${fmtCOP(deudaAnt)} deuda anterior</div>`;
+      }
+
+    } else if (cf.acumula) {
+      // Contabilidad: accumulates across months
+      mensualDisplay = cf.mensual;
+      const meses        = monthDiff(INICIO_MES, now) + 1;
+      const totalPagado  = allEgresos.filter(r => r.desc.toUpperCase() === kw).reduce((s,r) => s + Math.abs(r.valor), 0);
+      const totalEsp     = cf.mensual * meses;
+      pendiente          = Math.max(0, totalEsp - totalPagado);
+
     } else {
-      pagado = mesRows.filter(r=>r.desc.toUpperCase()===cf.keyword.toUpperCase()).reduce((s,r)=>s+Math.abs(r.valor),0);
-      pendiente = Math.max(0, cf.mensual - pagado);
+      // Regular monthly: resets each month
+      mensualDisplay = cf.mensual;
+      pendiente      = Math.max(0, cf.mensual - pagadoMes);
     }
-    const pct = cf.mensual > 0 ? Math.min(1, pagado/cf.mensual) : 0;
+
     let estado, dotClass;
-    if (pendiente === 0)       { estado='PAGADO';    dotClass='pagado'; }
-    else if (pagado > 0)       { estado='PARCIAL';   dotClass='parcial'; }
-    else                        { estado='PENDIENTE'; dotClass='pendiente'; }
-    
+    if (pendiente === 0 && deudaAnt === 0) { estado = 'PAGADO';    dotClass = 'pagado'; }
+    else if (pagadoMes > 0)                { estado = 'PARCIAL';   dotClass = 'parcial'; }
+    else                                    { estado = 'PENDIENTE'; dotClass = 'pendiente'; }
+
     return `<div class="costo-row">
       <div class="costo-dot ${dotClass}"></div>
       <div class="costo-info">
         <div class="costo-nombre">${cf.nombre}</div>
-        <div class="costo-sub">${estado}${cf.acumula?' · acumulado':''}</div>
+        <div class="costo-sub">${estado}</div>
       </div>
       <div class="costo-monto">
-        <div class="costo-esperado">${fmtCOP(cf.mensual)}</div>
-        ${pendiente>0?`<div class="costo-pendiente-val">-${fmtCOP(pendiente)}</div>`:''}
+        <div class="costo-esperado">${fmtCOP(mensualDisplay)}</div>
+        ${pendiente > 0 ? `<div class="costo-pendiente-val">debe: ${fmtCOP(pendiente)}</div>` : '<div class="costo-pendiente-val" style="color:var(--green)">✓</div>'}
+        ${extraInfo}
       </div>
     </div>`;
   }).join('');
+
   document.getElementById('costosFijosBody').innerHTML = html;
 }
 
@@ -1042,25 +1100,7 @@ function showToast(msg, type='') {
 }
 </script>
 
-<!-- PWA Manifest inline -->
-<script>
-const manifest = {
-  name: 'Apunayni · Caja',
-  short_name: 'Apunayni',
-  description: 'Registro de flujo de caja Apunayni',
-  start_url: '.',
-  display: 'standalone',
-  background_color: '#0a0a14',
-  theme_color: '#0a0a14',
-  icons: [{
-    src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230a0a14'/><text y='.9em' font-size='80' x='10'>🏡</text></svg>",
-    sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable'
-  }]
-};
-const blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
-const manifestUrl = URL.createObjectURL(blob);
-document.head.insertAdjacentHTML('beforeend', `<link rel="manifest" href="${manifestUrl}">`);
-</script>
+<!-- manifest external -->
 
 </body>
 </html>
