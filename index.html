@@ -1116,7 +1116,11 @@ function renderCostosFijos() {
     else if (pagadoMes>0)       { estado='PARCIAL';   dotClass='parcial'; }
     else                         { estado='PENDIENTE'; dotClass='pendiente'; }
 
-    if (deudaAnt>0) alertas.push({nombre:cf.nombre, monto:deudaAnt});
+    if (deudaAnt>0 && totalPendiente>0 && deudaAnt>exMes) {
+      // Only alert if the previous debt wasn't fully covered by this month's payments
+      const deudaAunPendiente = Math.min(deudaAnt, totalPendiente);
+      alertas.push({nombre:cf.nombre, montoPrev:deudaAunPendiente, montoMes:pendienteMes});
+    }
 
     let balanceHtml;
     if (exMes>0) {
@@ -1140,22 +1144,80 @@ function renderCostosFijos() {
     </div>`;
   }).join('');
 
+  // ── Total pendiente del mes actual ──────────────────────────────────
+  // Recalculate totalPendiente for ALL items to build the summary
+  let totalPendienteMes = 0;
+  let totalDeudaArrastrada = 0;
+  COSTOS_FIJOS_DEF.forEach((cf) => {
+    const kw        = cf.keyword.toUpperCase();
+    const pagadoMes = mesRows.filter(r=>r.desc.toUpperCase()===kw).reduce((s,r)=>s+Math.abs(r.valor),0);
+    const balance   = calcBalanceAnterior(cf, allEgresos, now);
+    const deudaAnt  = balance.deuda;
+    const exAnt     = balance.excedente;
+    let mensual, pendiente;
+    if (cf.tipo==='lili')       { mensual=liliMensualActual(); pendiente=Math.max(0,mensual-exAnt-pagadoMes); }
+    else if (cf.tipo==='alejo') { mensual=1900000; pendiente=Math.max(0,mensual-exAnt-pagadoMes); }
+    else if (cf.tipo==='accum') {
+      mensual=cf.mensual;
+      const tot=allEgresos.filter(r=>r.desc.toUpperCase()===kw).reduce((s,r)=>s+Math.abs(r.valor),0);
+      pendiente=Math.max(0,cf.mensual*(monthDiff(INICIO_MES,now)+1)-tot);
+    } else if (cf.tipo==='variable') { mensual=cf.mensual; pendiente=pagadoMes>0?0:cf.mensual; }
+    else { mensual=cf.mensual; pendiente=Math.max(0,cf.mensual-pagadoMes); }
+    const totalEsp = mensual + deudaAnt;
+    const totalRec = pagadoMes + exAnt;
+    const exMes    = (cf.tipo!=='accum'&&cf.tipo!=='variable')?Math.max(0,totalRec-totalEsp):0;
+    const totPend  = pendiente + deudaAnt;
+    if (exMes===0 && totPend>0) {
+      totalPendienteMes   += pendiente;
+      totalDeudaArrastrada += Math.min(deudaAnt, totPend);
+    }
+  });
+
+  // ── Alert banners ────────────────────────────────────────────────────
   let alertHtml = '';
+
+  // Banner 1: uncovered debts from previous month
   if (alertas.length>0) {
-    const lista = alertas.map(a=>`${a.nombre}: ${fmtCOP(a.monto)}`).join(' · ');
-    const total = alertas.reduce((s,a)=>s+a.monto,0);
-    alertHtml = `
-      <div style="margin-top:14px;padding:12px 14px;background:rgba(240,192,96,0.1);
+    const lista = alertas.map(a=>`${a.nombre}: ${fmtCOP(a.montoPrev)}`).join(' · ');
+    const total = alertas.reduce((s,a)=>s+a.montoPrev,0);
+    alertHtml += `
+      <div style="margin-top:12px;padding:12px 14px;background:rgba(240,192,96,0.08);
                   border:1.5px solid var(--gold);border-radius:10px;">
         <div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:4px">
-          ⚠ Deudas del mes anterior — priorizar
+          ⚠ Deudas del mes anterior sin cubrir
         </div>
-        <div style="font-size:12px;color:var(--text2);line-height:1.6">${lista}</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.7">${lista}</div>
         <div style="font-size:13px;font-weight:700;color:var(--gold);margin-top:6px">
           Total arrastrado: ${fmtCOP(total)}
         </div>
       </div>`;
   }
+
+  // Banner 2: total pending this month
+  if (totalPendienteMes>0 || totalDeudaArrastrada>0) {
+    const totalGlobal = totalPendienteMes + totalDeudaArrastrada;
+    alertHtml += `
+      <div style="margin-top:10px;padding:12px 14px;background:rgba(255,95,109,0.07);
+                  border:1.5px solid var(--red);border-radius:10px;">
+        <div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:6px">
+          💳 Total por pagar este mes
+        </div>
+        ${totalPendienteMes>0?`<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0">
+          <span style="color:var(--text2)">Costos del mes</span>
+          <span style="color:var(--red);font-weight:600">${fmtCOP(totalPendienteMes)}</span>
+        </div>`:''}
+        ${totalDeudaArrastrada>0?`<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0">
+          <span style="color:var(--text2)">Deudas anteriores</span>
+          <span style="color:var(--gold);font-weight:600">${fmtCOP(totalDeudaArrastrada)}</span>
+        </div>`:''}
+        <div style="height:1px;background:rgba(255,95,109,0.2);margin:6px 0"></div>
+        <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700">
+          <span style="color:var(--text)">Total</span>
+          <span style="color:var(--red)">${fmtCOP(totalGlobal)}</span>
+        </div>
+      </div>`;
+  }
+
   document.getElementById('costosFijosBody').innerHTML = html + alertHtml;
 }
 
