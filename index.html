@@ -570,22 +570,21 @@ const GLOSARIO = [
 const MEDIOS  = ['BANCOLOMBIA','EFECTIVO','NU','NEQUI','DAVIVIENDA','DAVIPLATA'];
 const TIPOS   = ['APUNAYNI','SALVAWASI','OPERATIVO','SALARIOS','TIENDA','REEMBOLSO','INTER CUENTA'];
 const COSTOS_FIJOS_DEF = [
-  { nombre:'INTERNET',          mensual: 180000,  keyword:'INTERNET' },
-  { nombre:'GAS',               mensual: 109000,  keyword:'GAS' },
-  { nombre:'SERVICIOS EPM',     mensual: 68000,   keyword:'SERVICIOS EPM' },
-  { nombre:'SEGUROS',           mensual: 113050,  keyword:'SEGUROS' },
-  { nombre:'CUOTA DE MANEJO',   mensual: 15000,   keyword:'CUOTA DE MANEJO' },
-  { nombre:'CONTABILIDAD',      mensual: 200000,  keyword:'CONTABILIDAD', acumula: true },
-  { nombre:'SALARIO LILIANA',   mensual: null,    keyword:'SALARIO-LILIANA',   tipo:'lili' },
-  { nombre:'SALARIO ALEJANDRO', mensual: 1900000, keyword:'SALARIO-ALEJANDRO', tipo:'alejo' },
+  { nombre:'INTERNET',          mensual: 180000,  keyword:'INTERNET',         tipo:'fixed'    },
+  { nombre:'GAS',               mensual: 109000,  keyword:'GAS',              tipo:'variable' },
+  { nombre:'SERVICIOS EPM',     mensual: 68000,   keyword:'SERVICIOS EPM',    tipo:'variable' },
+  { nombre:'SEGUROS',           mensual: 113050,  keyword:'SEGUROS',          tipo:'auto'     },
+  { nombre:'CUOTA DE MANEJO',   mensual: 15000,   keyword:'CUOTA DE MANEJO',  tipo:'fixed'    },
+  { nombre:'CONTABILIDAD',      mensual: 200000,  keyword:'CONTABILIDAD',     tipo:'accum'    },
+  { nombre:'SALARIO LILIANA',   mensual: null,    keyword:'SALARIO-LILIANA',  tipo:'lili'     },
+  { nombre:'SALARIO ALEJANDRO', mensual: 1900000, keyword:'SALARIO-ALEJANDRO',tipo:'alejo'    },
 ];
 const INICIO_MES = new Date(2026, 1, 1); // Feb 2026
 
-// ─── FRIDAY / SALARY HELPERS ─────────────────────────────────────────────────
+// ─── FRIDAY / SALARY / DEBT HELPERS ─────────────────────────────────────────
 function fridaysInMonth(year, month) {
-  // month is 0-indexed (JS). Returns exact count of Fridays.
-  // Uses: first Friday day = (5 - dayOfWeek(day1) + 7) % 7 + 1  (where Sun=0)
-  const day1WeekDay = new Date(year, month, 1).getDay(); // 0=Sun..6=Sat, Fri=5
+  // month 0-indexed. Exact Friday count using first-Friday anchor.
+  const day1WeekDay = new Date(year, month, 1).getDay(); // 0=Sun..6=Sat
   const firstFri    = (5 - day1WeekDay + 7) % 7 + 1;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   return Math.floor((daysInMonth - firstFri) / 7) + 1;
@@ -596,21 +595,53 @@ function liliMensualActual() {
   return fridaysInMonth(n.getFullYear(), n.getMonth()) * 260000;
 }
 
-function alejoDeudaMesesAnteriores(allEgresos) {
-  // Debt from months before the current month
-  const now     = new Date();
-  const inicioMesActual = new Date(now.getFullYear(), now.getMonth(), 1);
-  // Months elapsed before this month since Feb 2026
-  const mesesPrev = (now.getFullYear() - 2026) * 12 + now.getMonth() - 1; // Feb=0, Mar=1...
-  if (mesesPrev <= 0) return 0;
-  const esperadoPrev = 1900000 * mesesPrev;
-  const pagadoPrev = allEgresos
+function prevMonthOf(now) {
+  const m = now.getMonth(), y = now.getFullYear();
+  return m === 0 ? { year: y-1, month: 11 } : { year: y, month: m-1 };
+}
+
+function pagadoEnMes(allEgresos, keyword, year, month) {
+  return allEgresos
     .filter(r => {
       const d = parseFecha(r.fecha);
-      return d && d < inicioMesActual && r.desc.toUpperCase() === 'SALARIO-ALEJANDRO';
+      return d && d.getFullYear()===year && d.getMonth()===month
+          && r.desc.toUpperCase() === keyword.toUpperCase();
     })
     .reduce((s, r) => s + Math.abs(r.valor), 0);
-  return Math.max(0, esperadoPrev - pagadoPrev);
+}
+
+function anyPaidInMes(allEgresos, keyword, year, month) {
+  return allEgresos.some(r => {
+    const d = parseFecha(r.fecha);
+    return d && d.getFullYear()===year && d.getMonth()===month
+        && r.desc.toUpperCase() === keyword.toUpperCase();
+  });
+}
+
+function calcDeudaAnterior(cf, allEgresos, now) {
+  const prev = prevMonthOf(now);
+  const kw   = cf.keyword.toUpperCase();
+  if (cf.tipo === 'fixed') {
+    return Math.max(0, cf.mensual - pagadoEnMes(allEgresos, kw, prev.year, prev.month));
+  } else if (cf.tipo === 'variable') {
+    return anyPaidInMes(allEgresos, kw, prev.year, prev.month) ? 0 : cf.mensual;
+  } else if (cf.tipo === 'auto') {
+    return 0;
+  } else if (cf.tipo === 'accum') {
+    return 0; // already in pendiente via accumulation
+  } else if (cf.tipo === 'lili') {
+    const esperadoPrev = fridaysInMonth(prev.year, prev.month) * 260000;
+    return Math.max(0, esperadoPrev - pagadoEnMes(allEgresos, kw, prev.year, prev.month));
+  } else if (cf.tipo === 'alejo') {
+    const inicioMesActual = new Date(now.getFullYear(), now.getMonth(), 1);
+    const mesesPrev = (now.getFullYear()-2026)*12 + now.getMonth() - 1;
+    if (mesesPrev <= 0) return 0;
+    const pagadoPrev = allEgresos
+      .filter(r => { const d = parseFecha(r.fecha); return d && d < inicioMesActual && r.desc.toUpperCase()===kw; })
+      .reduce((s,r) => s+Math.abs(r.valor), 0);
+    return Math.max(0, 1900000*mesesPrev - pagadoPrev);
+  }
+  return 0;
 }
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
@@ -795,55 +826,54 @@ function renderMesResumen() {
 }
 
 function renderCostosFijos() {
-  const now     = new Date();
+  const now        = new Date();
   const allEgresos = state.rows.filter(r => r.ie === 'EGRESO');
   const mesRows    = allEgresos.filter(r => {
     const d = parseFecha(r.fecha);
-    return d && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    return d && d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
   });
 
-  const alejoDeuda = alejoDeudaMesesAnteriores(allEgresos);
+  const alertas = [];
 
   const html = COSTOS_FIJOS_DEF.map(cf => {
-    const kw = cf.keyword.toUpperCase();
-    const pagadoMes = mesRows
-      .filter(r => r.desc.toUpperCase() === kw)
-      .reduce((s, r) => s + Math.abs(r.valor), 0);
+    const kw        = cf.keyword.toUpperCase();
+    const pagadoMes = mesRows.filter(r => r.desc.toUpperCase()===kw)
+                             .reduce((s,r) => s+Math.abs(r.valor), 0);
+    const deudaAnt  = calcDeudaAnterior(cf, allEgresos, now);
 
-    let mensualDisplay, pendiente, deudaAnt = 0, extraInfo = '';
+    let mensualDisplay, pendienteMes;
 
     if (cf.tipo === 'lili') {
       mensualDisplay = liliMensualActual();
-      pendiente      = Math.max(0, mensualDisplay - pagadoMes);
-      // Lili: user confirmed starts each month clean
-      deudaAnt = 0;
-
+      pendienteMes   = Math.max(0, mensualDisplay - pagadoMes);
     } else if (cf.tipo === 'alejo') {
       mensualDisplay = 1900000;
-      pendiente      = Math.max(0, mensualDisplay - pagadoMes);
-      deudaAnt       = alejoDeuda;
-      if (deudaAnt > 0) {
-        extraInfo = `<div class="costo-pendiente-val" style="color:var(--gold)">+${fmtCOP(deudaAnt)} deuda anterior</div>`;
-      }
-
-    } else if (cf.acumula) {
-      // Contabilidad: accumulates across months
+      pendienteMes   = Math.max(0, mensualDisplay - pagadoMes);
+    } else if (cf.tipo === 'accum') {
+      mensualDisplay    = cf.mensual;
+      const meses       = monthDiff(INICIO_MES, now) + 1;
+      const totalPagado = allEgresos.filter(r=>r.desc.toUpperCase()===kw).reduce((s,r)=>s+Math.abs(r.valor),0);
+      pendienteMes      = Math.max(0, cf.mensual*meses - totalPagado);
+    } else if (cf.tipo === 'variable') {
       mensualDisplay = cf.mensual;
-      const meses        = monthDiff(INICIO_MES, now) + 1;
-      const totalPagado  = allEgresos.filter(r => r.desc.toUpperCase() === kw).reduce((s,r) => s + Math.abs(r.valor), 0);
-      const totalEsp     = cf.mensual * meses;
-      pendiente          = Math.max(0, totalEsp - totalPagado);
-
+      pendienteMes   = pagadoMes > 0 ? 0 : cf.mensual;
     } else {
-      // Regular monthly: resets each month
       mensualDisplay = cf.mensual;
-      pendiente      = Math.max(0, cf.mensual - pagadoMes);
+      pendienteMes   = Math.max(0, cf.mensual - pagadoMes);
     }
 
+    const totalPendiente = pendienteMes + deudaAnt;
+
     let estado, dotClass;
-    if (pendiente === 0 && deudaAnt === 0) { estado = 'PAGADO';    dotClass = 'pagado'; }
-    else if (pagadoMes > 0)                { estado = 'PARCIAL';   dotClass = 'parcial'; }
-    else                                    { estado = 'PENDIENTE'; dotClass = 'pendiente'; }
+    if (totalPendiente === 0) { estado='PAGADO';    dotClass='pagado'; }
+    else if (pagadoMes > 0)   { estado='PARCIAL';   dotClass='parcial'; }
+    else                       { estado='PENDIENTE'; dotClass='pendiente'; }
+
+    if (deudaAnt > 0) alertas.push({ nombre: cf.nombre, monto: deudaAnt });
+
+    const deudaTag = deudaAnt > 0
+      ? `<div class="costo-pendiente-val" style="color:var(--gold);font-size:11px">+${fmtCOP(deudaAnt)} mes ant.</div>`
+      : '';
 
     return `<div class="costo-row">
       <div class="costo-dot ${dotClass}"></div>
@@ -853,13 +883,32 @@ function renderCostosFijos() {
       </div>
       <div class="costo-monto">
         <div class="costo-esperado">${fmtCOP(mensualDisplay)}</div>
-        ${pendiente > 0 ? `<div class="costo-pendiente-val">debe: ${fmtCOP(pendiente)}</div>` : '<div class="costo-pendiente-val" style="color:var(--green)">✓</div>'}
-        ${extraInfo}
+        ${totalPendiente > 0
+          ? `<div class="costo-pendiente-val">debe: ${fmtCOP(totalPendiente)}</div>`
+          : '<div class="costo-pendiente-val" style="color:var(--green)">✓</div>'}
+        ${deudaTag}
       </div>
     </div>`;
   }).join('');
 
-  document.getElementById('costosFijosBody').innerHTML = html;
+  let alertHtml = '';
+  if (alertas.length > 0) {
+    const lista = alertas.map(a=>`${a.nombre}: ${fmtCOP(a.monto)}`).join(' · ');
+    const total = alertas.reduce((s,a)=>s+a.monto, 0);
+    alertHtml = `
+      <div style="margin-top:14px;padding:12px 14px;background:rgba(240,192,96,0.1);
+                  border:1.5px solid var(--gold);border-radius:10px;">
+        <div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:4px">
+          ⚠ Deudas del mes anterior — prioridad de pago
+        </div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.6">${lista}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--gold);margin-top:6px">
+          Total arrastrado: ${fmtCOP(total)}
+        </div>
+      </div>`;
+  }
+
+  document.getElementById('costosFijosBody').innerHTML = html + alertHtml;
 }
 
 function renderMovimientos() {
