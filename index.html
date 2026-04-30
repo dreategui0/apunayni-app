@@ -672,9 +672,9 @@ html, body {
 
         <!-- Toggle: TIPO vs DESCRIPCION -->
         <div style="display:flex;gap:8px;margin-bottom:16px">
-          <button class="chip active" id="toggleTipo" onclick="setAnalisisMode('tipo')">Por tipo</button>
-          <button class="chip" id="toggleDesc" onclick="setAnalisisMode('desc')">Por descripción</button>
-          <button class="chip" id="toggleMedio" onclick="setAnalisisMode('medio')">Por cuenta</button>
+          <button class="chip" id="toggle_tipo"  onclick="setAnalisisMode('tipo')">Por tipo</button>
+          <button class="chip active" id="toggle_desc"  onclick="setAnalisisMode('desc')">Por descripción</button>
+          <button class="chip" id="toggle_medio" onclick="setAnalisisMode('medio')">Por cuenta</button>
         </div>
 
         <!-- Results -->
@@ -753,6 +753,7 @@ const COSTOS_FIJOS_DEF = [
   { nombre:'SALARIO ALEJANDRO', mensual: 1900000, keyword:'SALARIO-ALEJANDRO',tipo:'alejo'    },
 ];
 const INICIO_MES = new Date(2026, 1, 1); // Feb 2026
+const LILI_DEUDA_INICIAL = 260000; // Semana de enero pendiente al iniciar el registro
 
 // ─── FRIDAY / SALARY / DEBT HELPERS ─────────────────────────────────────────
 function fridaysInMonth(year, month) {
@@ -811,10 +812,23 @@ function calcBalanceAnterior(cf, allEgresos, now) {
     return { deuda: 0, excedente: 0 }; // handled via accumulation in pendiente
 
   } else if (cf.tipo === 'lili') {
-    const esperadoPrev = fridaysInMonth(prev.year, prev.month) * 260000;
-    const pagadoPrev   = pagadoEnMes(allEgresos, kw, prev.year, prev.month);
-    const diff         = pagadoPrev - esperadoPrev;
-    return diff >= 0 ? { deuda: 0, excedente: diff } : { deuda: -diff, excedente: 0 };
+    // Month-by-month simulation with initial debt of 260,000 (Jan week owed).
+    // Simulates: each month = fridays*260k + carried_debt_from_prev_month
+    // Carried debt = max(0, expected - paid). Excedente is NOT carried forward.
+    const inicioMesActual = new Date(now.getFullYear(), now.getMonth(), 1);
+    const inicioRegistro  = new Date(2026, 1, 1); // Feb 2026 = start of records
+    if (now < inicioRegistro) return { deuda: 0, excedente: 0 };
+
+    let deudaAcum = LILI_DEUDA_INICIAL; // start with the Jan week owed
+    let cursor = new Date(inicioRegistro);
+    while (cursor < inicioMesActual) {
+      const y = cursor.getFullYear(), m = cursor.getMonth();
+      const esperadoMes = fridaysInMonth(y, m) * 260000 + deudaAcum;
+      const pagadoMes   = pagadoEnMes(allEgresos, kw, y, m);
+      deudaAcum = Math.max(0, esperadoMes - pagadoMes); // only carry debt, not credit
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+    return deudaAcum > 0 ? { deuda: deudaAcum, excedente: 0 } : { deuda: 0, excedente: 0 };
 
   } else if (cf.tipo === 'alejo') {
     // Full historical: compare total expected vs total paid up to start of this month
@@ -1454,38 +1468,30 @@ function showToast(msg, type='') {
   setTimeout(() => t.classList.remove('show'), 2800);
 }
 
-// ─── ANALYTICS ────────────────────────────────────────────────────────────────
-const ANA_TIPOS   = ['APUNAYNI','SALVAWASI','OPERATIVO','SALARIOS','TIENDA','REEMBOLSO','INTER CUENTA'];
-const ANA_MEDIOS  = ['BANCOLOMBIA','EFECTIVO','NU','NEQUI','DAVIVIENDA','DAVIPLATA'];
-const ANA_DESCS   = ['RESERVAS','SALARIO-ALEJANDRO','SALARIO-LILIANA','GAS','INTERNET',
-                      'SERVICIOS EPM','SEGUROS','CONTABILIDAD','GASOLINA','INSUMOS',
-                      'VENTAS','TIENDA','REEMBOLSO'];
-
-let anaState = { mode: 'tipo', keyword: null };
+// ─── ANALYTICS ─────────────────────────────────────────────────────────────────
+const ANA_MODES = ['tipo','desc','medio'];
+let anaState = { mode: 'desc', keyword: null };
 
 function initAnalisis() {
-  // Build chips from actual data
-  const allKeys = getAnaKeys(anaState.mode);
-  renderAnaChips(allKeys);
-  if (!anaState.keyword && allKeys.length>0) {
-    anaState.keyword = allKeys[0];
+  const keys = getAnaKeys(anaState.mode);
+  renderAnaChips(keys);
+  if (!anaState.keyword || !keys.includes(anaState.keyword)) {
+    anaState.keyword = keys[0] || null;
   }
   renderAnaResult();
 }
 
 function getAnaKeys(mode) {
-  if (mode==='tipo')  return [...new Set(state.rows.map(r=>r.tipo).filter(Boolean).map(s=>s.toUpperCase()))].sort();
-  if (mode==='medio') return [...new Set(state.rows.map(r=>r.medio).filter(Boolean).map(s=>s.toUpperCase()))].sort();
-  // desc mode: all unique descs
-  return [...new Set(state.rows.map(r=>r.desc).filter(Boolean).map(s=>s.toUpperCase()))].sort();
+  const col = mode==='tipo' ? 'tipo' : mode==='medio' ? 'medio' : 'desc';
+  return [...new Set(state.rows.map(r=>(r[col]||'').toUpperCase().trim()).filter(Boolean))].sort();
 }
 
 function setAnalisisMode(mode) {
   anaState.mode = mode;
   anaState.keyword = null;
   ['tipo','desc','medio'].forEach(m => {
-    document.getElementById('toggle'+m.charAt(0).toUpperCase()+m.slice(1))
-            ?.classList.toggle('active', m===mode);
+    const btn = document.getElementById('toggle_'+m);
+    if (btn) btn.classList.toggle('active', m===mode);
   });
   document.getElementById('analisisSearch').value = '';
   initAnalisis();
@@ -1493,14 +1499,15 @@ function setAnalisisMode(mode) {
 
 function onAnalisisSearch() {
   const q = document.getElementById('analisisSearch').value.toUpperCase().trim();
-  const allKeys = getAnaKeys(anaState.mode);
-  const filtered = q ? allKeys.filter(k=>k.includes(q)) : allKeys;
-  renderAnaChips(filtered);
+  const keys = getAnaKeys(anaState.mode);
+  renderAnaChips(q ? keys.filter(k=>k.includes(q)) : keys);
 }
 
 function renderAnaChips(keys) {
-  document.getElementById('analisisChips').innerHTML = keys.slice(0,20).map(k =>
-    `<div class="chip${k===anaState.keyword?' active':''}" onclick="selectAnaKeyword('${k}')">${k}</div>`
+  document.getElementById('analisisChips').innerHTML = keys.slice(0,30).map(k =>
+    `<div class="chip${k===anaState.keyword?' active':''}" onclick="selectAnaKeyword('${k.replace(/'/g,"\'")}')">
+      ${k}
+    </div>`
   ).join('');
 }
 
@@ -1510,25 +1517,47 @@ function selectAnaKeyword(kw) {
   renderAnaResult();
 }
 
-function filterRows(kw, mode) {
+function getRowsForKeyword(kw, mode) {
   const k = kw.toUpperCase();
   return state.rows.filter(r => {
-    if (mode==='tipo')  return (r.tipo||'').toUpperCase()===k;
-    if (mode==='medio') return (r.medio||'').toUpperCase()===k;
-    return (r.desc||'').toUpperCase()===k;
+    const col = mode==='tipo' ? r.tipo : mode==='medio' ? r.medio : r.desc;
+    return (col||'').toUpperCase().trim() === k;
   });
+}
+
+// For Liliana: compute expected and deuda for a given month using initial-debt simulation
+function liliMonthStats(year, month) {
+  // Simulate month-by-month from Feb 2026 to the given month
+  const allEgresos = state.rows.filter(r=>r.ie==='EGRESO');
+  const kw = 'SALARIO-LILIANA';
+  let deudaAcum = LILI_DEUDA_INICIAL;
+  let cursor = new Date(2026, 1, 1); // Feb 2026
+  const target = new Date(year, month, 1);
+
+  let stats = [];
+  while (cursor <= target) {
+    const y = cursor.getFullYear(), m = cursor.getMonth();
+    const esperadoMes = fridaysInMonth(y, m) * 260000;
+    const deudaAnterior = deudaAcum;
+    const totalDebido = esperadoMes + deudaAnterior;
+    const pagado = pagadoEnMes(allEgresos, kw, y, m);
+    const saldoFin = Math.max(0, totalDebido - pagado);
+    const excedente = Math.max(0, pagado - totalDebido);
+    stats.push({ year:y, month:m, esperadoMes, deudaAnterior, totalDebido, pagado, saldoFin, excedente });
+    deudaAcum = saldoFin;
+    cursor.setMonth(cursor.getMonth()+1);
+  }
+  return stats;
 }
 
 function renderAnaResult() {
   const kw   = anaState.keyword;
   const mode = anaState.mode;
-  if (!kw) { document.getElementById('analisisResult').innerHTML='<p style="color:var(--text3);text-align:center;padding:24px">Selecciona un filtro</p>'; return; }
+  const div  = document.getElementById('analisisResult');
+  if (!kw) { div.innerHTML='<p style="color:var(--text3);text-align:center;padding:24px">Selecciona una opción</p>'; return; }
 
-  const matched = filterRows(kw, mode);
-  if (matched.length===0) {
-    document.getElementById('analisisResult').innerHTML='<p style="color:var(--text3);text-align:center;padding:24px">Sin movimientos</p>';
-    return;
-  }
+  const matched = getRowsForKeyword(kw, mode);
+  const isLili  = (mode==='desc' && kw==='SALARIO-LILIANA');
 
   // Group by month
   const byMonth = {};
@@ -1536,113 +1565,198 @@ function renderAnaResult() {
     const d = parseFecha(r.fecha);
     if (!d) return;
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    if (!byMonth[key]) byMonth[key] = { ing:0, egr:0, rows:[] };
+    if (!byMonth[key]) byMonth[key] = { y:d.getFullYear(), m:d.getMonth(), ing:0, egr:0, rows:[] };
     if (r.valor>0) byMonth[key].ing += r.valor;
     else           byMonth[key].egr += Math.abs(r.valor);
     byMonth[key].rows.push(r);
   });
 
-  const months  = Object.keys(byMonth).sort();
-  const totalIng = matched.filter(r=>r.valor>0).reduce((s,r)=>s+r.valor,0);
-  const totalEgr = matched.filter(r=>r.valor<0).reduce((s,r)=>s+Math.abs(r.valor),0);
-  const nMov     = matched.length;
+  // If Lili, augment with simulation data
+  let liliStats = {};
+  if (isLili) {
+    const months = Object.keys(byMonth).sort();
+    if (months.length > 0) {
+      const lastM = months[months.length-1];
+      const [ly, lm] = lastM.split('-').map(Number);
+      const stats = liliMonthStats(ly, lm-1);
+      stats.forEach(s => {
+        const key = `${s.year}-${String(s.month+1).padStart(2,'0')}`;
+        liliStats[key] = s;
+      });
+    }
+    // Also include months that have stats but no payments
+    Object.keys(liliStats).forEach(key => {
+      if (!byMonth[key] && liliStats[key].pagado === 0) {
+        const s = liliStats[key];
+        byMonth[key] = { y:s.year, m:s.month, ing:0, egr:0, rows:[] };
+      }
+    });
+  }
 
-  const nomMeses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const months    = Object.keys(byMonth).sort();
+  const totalIng  = matched.filter(r=>r.valor>0).reduce((s,r)=>s+r.valor,0);
+  const totalEgr  = matched.filter(r=>r.valor<0).reduce((s,r)=>s+Math.abs(r.valor),0);
+  const nomMeses  = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const nomMesesL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
-  // Summary cards
-  const isEgreso = totalEgr > totalIng;
+  // ── Summary cards ────────────────────────────────────────────────────
+  const neto = totalIng - totalEgr;
   let summaryHtml = `<div class="ana-summary">
-    <div class="ana-stat"><div class="ana-stat-label">TOTAL INGRESOS</div>
-      <div class="ana-stat-val green">${fmtCOP(totalIng)}</div></div>
-    <div class="ana-stat"><div class="ana-stat-label">TOTAL EGRESOS</div>
-      <div class="ana-stat-val red">${fmtCOP(totalEgr)}</div></div>
+    ${totalIng>0?`<div class="ana-stat"><div class="ana-stat-label">TOTAL INGRESOS</div>
+      <div class="ana-stat-val green">${fmtCOP(totalIng)}</div></div>`:''}
+    ${totalEgr>0?`<div class="ana-stat"><div class="ana-stat-label">TOTAL EGRESOS</div>
+      <div class="ana-stat-val red">${fmtCOP(totalEgr)}</div></div>`:''}
     <div class="ana-stat"><div class="ana-stat-label">NETO</div>
-      <div class="ana-stat-val ${totalIng-totalEgr>=0?'green':'red'}">${fmtCOP(totalIng-totalEgr)}</div></div>
+      <div class="ana-stat-val ${neto>=0?'green':'red'}">${fmtCOP(Math.abs(neto))}</div></div>
     <div class="ana-stat"><div class="ana-stat-label">MOVIMIENTOS</div>
-      <div class="ana-stat-val gold">${nMov}</div></div>
+      <div class="ana-stat-val gold">${matched.length}</div></div>
+    <div class="ana-stat"><div class="ana-stat-label">MESES</div>
+      <div class="ana-stat-val gold">${months.length}</div></div>
+    ${months.length>1?`<div class="ana-stat"><div class="ana-stat-label">PROMEDIO MES</div>
+      <div class="ana-stat-val">${fmtCOP(Math.round(totalEgr>totalIng?totalEgr:totalIng/months.length))}</div></div>`:''}
   </div>`;
 
-  // Bar chart
-  const maxVal = Math.max(...months.map(m => Math.max(byMonth[m].ing, byMonth[m].egr))) || 1;
+  // ── Bar chart ────────────────────────────────────────────────────────
+  const maxVal = isLili
+    ? Math.max(...months.map(k => liliStats[k]?.totalDebido || byMonth[k].egr), 1)
+    : Math.max(...months.map(k => Math.max(byMonth[k].ing, byMonth[k].egr)), 1);
 
-  let barsHtml = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px">
-    <div class="card-title" style="margin-bottom:12px">MES A MES</div>
-    <div class="ana-bar-wrap">`;
+  let barsHtml = `<div style="background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius);padding:16px;margin-bottom:12px">
+    <div class="card-title" style="margin-bottom:14px">MES A MES</div>`;
 
-  months.forEach(m => {
-    const [y, mo] = m.split('-').map(Number);
-    const label = nomMeses[mo-1];
-    const data  = byMonth[m];
-    const hasIng = data.ing > 0;
-    const hasEgr = data.egr > 0;
+  months.forEach(key => {
+    const data = byMonth[key];
+    const label = nomMeses[data.m] + ' ' + String(data.y).slice(2);
 
-    if (hasIng) {
-      const pct = data.ing / maxVal * 100;
-      barsHtml += `<div class="ana-bar-row">
-        <div class="ana-bar-label">${label} ${String(y).slice(2)}</div>
-        <div class="ana-bar-track">
-          <div class="ana-bar-fill ing" style="width:${pct}%">
-            <span class="ana-bar-val" style="color:var(--green)">${fmtCOP(data.ing)}</span>
-          </div>
+    if (isLili && liliStats[key]) {
+      const ls = liliStats[key];
+      const pctDebido  = ls.totalDebido / maxVal * 100;
+      const pctPagado  = Math.min(ls.pagado, ls.totalDebido) / maxVal * 100;
+      const pctDeuda   = ls.deudaAnterior / maxVal * 100;
+      const pctBase    = ls.esperadoMes / maxVal * 100;
+      const pendiente  = ls.saldoFin;
+
+      barsHtml += `<div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:4px">
+          <span style="font-weight:600;color:var(--text)">${label}</span>
+          <span>${ls.deudaAnterior>0?`deuda ant: ${fmtCOP(ls.deudaAnterior)} · `:''
+          }esperado: ${fmtCOP(ls.esperadoMes)}</span>
+        </div>
+        <div class="prog-track" style="height:18px;border-radius:5px">
+          ${ls.deudaAnterior>0?`<div class="prog-bar-prev" style="width:${Math.min(pctDebido,100)}%;opacity:0.5"></div>`:''}
+          <div class="prog-bar-base" style="width:${Math.min(pctBase,100)}%"></div>
+          <div class="prog-bar-paid" style="width:${Math.min(pctPagado,100)}%"></div>
+          <div class="prog-target-line" style="left:${Math.min(pctDebido,98)}%"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:3px">
+          <span style="color:var(--green)">Pagado: ${fmtCOP(ls.pagado)}</span>
+          <span style="color:${pendiente>0?'var(--red)':'var(--green)'}">${pendiente>0?'Pendiente: '+fmtCOP(pendiente):'✓ Al día'}</span>
         </div>
       </div>`;
-    }
-    if (hasEgr) {
-      const pct = data.egr / maxVal * 100;
-      const label2 = hasIng ? '' : label+' '+String(y).slice(2);
-      barsHtml += `<div class="ana-bar-row">
-        <div class="ana-bar-label" style="color:var(--red)">${label2||'↳'}</div>
-        <div class="ana-bar-track">
-          <div class="ana-bar-fill egr" style="width:${pct}%">
-            <span class="ana-bar-val" style="color:var(--red)">${fmtCOP(data.egr)}</span>
+    } else {
+      // Standard bar
+      if (data.ing > 0) {
+        const pct = data.ing / maxVal * 100;
+        barsHtml += `<div class="ana-bar-row">
+          <div class="ana-bar-label">${label}</div>
+          <div class="ana-bar-track">
+            <div class="ana-bar-fill ing" style="width:${pct}%">
+              <span class="ana-bar-val">${fmtCOP(data.ing)}</span>
+            </div>
           </div>
-        </div>
-      </div>`;
+        </div>`;
+      }
+      if (data.egr > 0) {
+        const pct = data.egr / maxVal * 100;
+        barsHtml += `<div class="ana-bar-row">
+          <div class="ana-bar-label" style="${data.ing>0?'color:var(--red)':''}">
+            ${data.ing>0?'↳ egr':label}
+          </div>
+          <div class="ana-bar-track">
+            <div class="ana-bar-fill egr" style="width:${pct}%">
+              <span class="ana-bar-val">${fmtCOP(data.egr)}</span>
+            </div>
+          </div>
+        </div>`;
+      }
     }
   });
+  barsHtml += `</div>`;
 
-  barsHtml += `</div></div>`;
-
-  // Monthly breakdown list
+  // ── Monthly detail list ──────────────────────────────────────────────
   let listHtml = '';
-  months.slice().reverse().forEach(m => {
-    const [y, mo] = m.split('-').map(Number);
-    const mNom = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
-                  'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][mo-1];
-    const data = byMonth[m];
+  months.slice().reverse().forEach(key => {
+    const data  = byMonth[key];
+    const ls    = isLili ? liliStats[key] : null;
+    const mNom  = nomMesesL[data.m];
+
     listHtml += `<div style="background:var(--surface);border:1px solid var(--border);
       border-radius:var(--radius-sm);padding:14px;margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div style="font-size:13px;font-weight:700">${mNom} ${y}</div>
-        <div style="font-size:12px;color:var(--text3)">${data.rows.length} mov.</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+        <div style="font-size:14px;font-weight:700">${mNom} ${data.y}</div>
+        <div style="text-align:right;font-size:12px;color:var(--text3)">${data.rows.length} mov.</div>
       </div>`;
-    if (data.ing>0) listHtml += `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0">
-      <span style="color:var(--text3)">Ingresos</span><span style="color:var(--green);font-weight:600">+${fmtCOP(data.ing)}</span></div>`;
-    if (data.egr>0) listHtml += `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0">
-      <span style="color:var(--text3)">Egresos</span><span style="color:var(--red);font-weight:600">−${fmtCOP(data.egr)}</span></div>`;
+
+    if (ls) {
+      // Lili detailed breakdown
+      listHtml += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
+        ${ls.deudaAnterior>0?`<div style="background:rgba(240,192,96,0.1);border-radius:6px;padding:8px">
+          <div style="font-size:10px;color:var(--gold)">DEUDA ANTERIOR</div>
+          <div style="font-size:13px;font-weight:700;color:var(--gold)">${fmtCOP(ls.deudaAnterior)}</div>
+        </div>`:''}
+        <div style="background:var(--surface2);border-radius:6px;padding:8px">
+          <div style="font-size:10px;color:var(--text3)">ESPERADO MES</div>
+          <div style="font-size:13px;font-weight:700">${fmtCOP(ls.esperadoMes)}</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:6px;padding:8px">
+          <div style="font-size:10px;color:var(--text3)">TOTAL DEBIDO</div>
+          <div style="font-size:13px;font-weight:700">${fmtCOP(ls.totalDebido)}</div>
+        </div>
+        <div style="background:rgba(46,204,138,0.1);border-radius:6px;padding:8px">
+          <div style="font-size:10px;color:var(--green)">PAGADO</div>
+          <div style="font-size:13px;font-weight:700;color:var(--green)">${fmtCOP(ls.pagado)}</div>
+        </div>
+        <div style="background:${ls.saldoFin>0?'rgba(255,95,109,0.1)':'rgba(46,204,138,0.1)'};border-radius:6px;padding:8px">
+          <div style="font-size:10px;color:${ls.saldoFin>0?'var(--red)':'var(--green)'}">${ls.saldoFin>0?'PENDIENTE':'AL DÍA'}</div>
+          <div style="font-size:13px;font-weight:700;color:${ls.saldoFin>0?'var(--red)':'var(--green)'}">
+            ${ls.saldoFin>0?fmtCOP(ls.saldoFin):'✓'}
+          </div>
+        </div>
+      </div>`;
+    } else {
+      if (data.ing>0) listHtml += `<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0">
+        <span style="color:var(--text3)">Ingresos</span>
+        <span style="color:var(--green);font-weight:600">+${fmtCOP(data.ing)}</span></div>`;
+      if (data.egr>0) listHtml += `<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0">
+        <span style="color:var(--text3)">Egresos</span>
+        <span style="color:var(--red);font-weight:600">−${fmtCOP(data.egr)}</span></div>`;
+    }
+
     // Individual movements
-    listHtml += `<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">`;
-    data.rows.sort((a,b)=>parseFecha(a.fecha)-parseFecha(b.fecha)).forEach(r=>{
-      const isPos = r.valor>0;
-      listHtml += `<div style="display:flex;justify-content:space-between;align-items:center;
-        padding:5px 0;border-bottom:1px solid var(--border)">
-        <div>
-          <div style="font-size:12px;font-weight:500">${r.desc||'—'}</div>
-          <div style="font-size:11px;color:var(--text3)">${fmtFecha(r.fecha)} · ${r.medio}</div>
-        </div>
-        <div style="font-size:13px;font-weight:700;color:${isPos?'var(--green)':'var(--red)'}">
-          ${isPos?'+':'−'}${fmtCOP(Math.abs(r.valor))}
-        </div>
-      </div>`;
-    });
-    listHtml += `</div></div>`;
+    if (data.rows.length > 0) {
+      listHtml += `<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">`;
+      data.rows.sort((a,b)=>{const da=parseFecha(a.fecha),db=parseFecha(b.fecha);return da-db;})
+               .forEach(r => {
+        const isPos = r.valor > 0;
+        const extra = mode==='desc' ? r.medio : mode==='medio' ? r.desc : r.desc;
+        listHtml += `<div style="display:flex;justify-content:space-between;align-items:center;
+          padding:6px 0;border-bottom:1px solid var(--border)">
+          <div>
+            <div style="font-size:12px;font-weight:500">${extra||'—'}</div>
+            <div style="font-size:11px;color:var(--text3)">${fmtFecha(r.fecha)}${mode!=='medio'?' · '+r.medio:''}</div>
+          </div>
+          <div style="font-size:13px;font-weight:700;color:${isPos?'var(--green)':'var(--red)'}">
+            ${isPos?'+':'−'}${fmtCOP(Math.abs(r.valor))}
+          </div>
+        </div>`;
+      });
+      listHtml += `</div>`;
+    }
+    listHtml += `</div>`;
   });
 
-  document.getElementById('analisisResult').innerHTML = summaryHtml + barsHtml + listHtml;
+  div.innerHTML = summaryHtml + barsHtml + listHtml;
 }
+
 </script>
-
-<!-- manifest external -->
-
-</body>
-</html>
