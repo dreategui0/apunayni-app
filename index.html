@@ -584,7 +584,7 @@ const INICIO_MES = new Date(2026, 1, 1); // Feb 2026
 // ─── FRIDAY / SALARY / DEBT HELPERS ─────────────────────────────────────────
 function fridaysInMonth(year, month) {
   // month 0-indexed. Exact Friday count using first-Friday anchor.
-  const day1WeekDay = new Date(year, month, 1).getDay(); // 0=Sun..6=Sat
+  const day1WeekDay = new Date(year, month, 1).getDay();
   const firstFri    = (5 - day1WeekDay + 7) % 7 + 1;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   return Math.floor((daysInMonth - firstFri) / 7) + 1;
@@ -618,30 +618,51 @@ function anyPaidInMes(allEgresos, keyword, year, month) {
   });
 }
 
-function calcDeudaAnterior(cf, allEgresos, now) {
+// Returns { deuda, excedente } — one will always be 0
+function calcBalanceAnterior(cf, allEgresos, now) {
   const prev = prevMonthOf(now);
   const kw   = cf.keyword.toUpperCase();
+
   if (cf.tipo === 'fixed') {
-    return Math.max(0, cf.mensual - pagadoEnMes(allEgresos, kw, prev.year, prev.month));
+    const pagado = pagadoEnMes(allEgresos, kw, prev.year, prev.month);
+    const diff   = pagado - cf.mensual;
+    return diff >= 0 ? { deuda: 0, excedente: diff } : { deuda: -diff, excedente: 0 };
+
   } else if (cf.tipo === 'variable') {
-    return anyPaidInMes(allEgresos, kw, prev.year, prev.month) ? 0 : cf.mensual;
+    return { deuda: anyPaidInMes(allEgresos, kw, prev.year, prev.month) ? 0 : cf.mensual, excedente: 0 };
+
   } else if (cf.tipo === 'auto') {
-    return 0;
+    return { deuda: 0, excedente: 0 };
+
   } else if (cf.tipo === 'accum') {
-    return 0; // already in pendiente via accumulation
+    return { deuda: 0, excedente: 0 }; // handled via accumulation in pendiente
+
   } else if (cf.tipo === 'lili') {
     const esperadoPrev = fridaysInMonth(prev.year, prev.month) * 260000;
-    return Math.max(0, esperadoPrev - pagadoEnMes(allEgresos, kw, prev.year, prev.month));
+    const pagadoPrev   = pagadoEnMes(allEgresos, kw, prev.year, prev.month);
+    const diff         = pagadoPrev - esperadoPrev;
+    return diff >= 0 ? { deuda: 0, excedente: diff } : { deuda: -diff, excedente: 0 };
+
   } else if (cf.tipo === 'alejo') {
+    // Full historical: compare total expected vs total paid up to start of this month
     const inicioMesActual = new Date(now.getFullYear(), now.getMonth(), 1);
     const mesesPrev = (now.getFullYear()-2026)*12 + now.getMonth() - 1;
-    if (mesesPrev <= 0) return 0;
-    const pagadoPrev = allEgresos
+    if (mesesPrev <= 0) return { deuda: 0, excedente: 0 };
+    const esperadoHist = 1900000 * mesesPrev;
+    const pagadoHist   = allEgresos
       .filter(r => { const d = parseFecha(r.fecha); return d && d < inicioMesActual && r.desc.toUpperCase()===kw; })
       .reduce((s,r) => s+Math.abs(r.valor), 0);
-    return Math.max(0, 1900000*mesesPrev - pagadoPrev);
+    const diff = pagadoHist - esperadoHist;
+    return diff >= 0 ? { deuda: 0, excedente: diff } : { deuda: -diff, excedente: 0 };
   }
-  return 0;
+  return { deuda: 0, excedente: 0 };
+}
+
+// Also check excedente in CURRENT month (paid more than expected this month)
+function calcExcedenteMesActual(cf, pagadoMes, mensualDisplay) {
+  if (cf.tipo === 'variable') return 0; // not applicable
+  if (cf.tipo === 'accum')    return 0;
+  return Math.max(0, pagadoMes - mensualDisplay);
 }
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
@@ -833,47 +854,79 @@ function renderCostosFijos() {
     return d && d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
   });
 
-  const alertas = [];
+  const alertas = []; // items with debt carried from previous month
 
   const html = COSTOS_FIJOS_DEF.map(cf => {
     const kw        = cf.keyword.toUpperCase();
     const pagadoMes = mesRows.filter(r => r.desc.toUpperCase()===kw)
                              .reduce((s,r) => s+Math.abs(r.valor), 0);
-    const deudaAnt  = calcDeudaAnterior(cf, allEgresos, now);
+
+    const balance   = calcBalanceAnterior(cf, allEgresos, now);
+    const deudaAnt  = balance.deuda;
+    const exAnt     = balance.excedente; // credit carried from prev month
 
     let mensualDisplay, pendienteMes;
 
     if (cf.tipo === 'lili') {
       mensualDisplay = liliMensualActual();
-      pendienteMes   = Math.max(0, mensualDisplay - pagadoMes);
+      // Reduce this month's due by any credit from previous month
+      pendienteMes   = Math.max(0, mensualDisplay - exAnt - pagadoMes);
+
     } else if (cf.tipo === 'alejo') {
       mensualDisplay = 1900000;
-      pendienteMes   = Math.max(0, mensualDisplay - pagadoMes);
+      // Reduce this month's due by any historical credit
+      pendienteMes   = Math.max(0, mensualDisplay - exAnt - pagadoMes);
+
     } else if (cf.tipo === 'accum') {
       mensualDisplay    = cf.mensual;
       const meses       = monthDiff(INICIO_MES, now) + 1;
       const totalPagado = allEgresos.filter(r=>r.desc.toUpperCase()===kw).reduce((s,r)=>s+Math.abs(r.valor),0);
       pendienteMes      = Math.max(0, cf.mensual*meses - totalPagado);
+
     } else if (cf.tipo === 'variable') {
       mensualDisplay = cf.mensual;
       pendienteMes   = pagadoMes > 0 ? 0 : cf.mensual;
-    } else {
+
+    } else { // fixed
       mensualDisplay = cf.mensual;
       pendienteMes   = Math.max(0, cf.mensual - pagadoMes);
     }
 
+    // Excedente this month (paid more than expected this month, beyond any prev credit)
+    const exMes = (cf.tipo !== 'accum' && cf.tipo !== 'variable')
+      ? Math.max(0, pagadoMes + exAnt - mensualDisplay)
+      : 0;
+
     const totalPendiente = pendienteMes + deudaAnt;
 
+    // Estado
     let estado, dotClass;
-    if (totalPendiente === 0) { estado='PAGADO';    dotClass='pagado'; }
-    else if (pagadoMes > 0)   { estado='PARCIAL';   dotClass='parcial'; }
-    else                       { estado='PENDIENTE'; dotClass='pendiente'; }
+    if (totalPendiente === 0 && (exMes > 0 || exAnt > 0 || pagadoMes >= mensualDisplay)) {
+      estado = 'PAGADO'; dotClass = 'pagado';
+    } else if (pagadoMes > 0) {
+      estado = 'PARCIAL'; dotClass = 'parcial';
+    } else {
+      estado = 'PENDIENTE'; dotClass = 'pendiente';
+    }
 
     if (deudaAnt > 0) alertas.push({ nombre: cf.nombre, monto: deudaAnt });
 
-    const deudaTag = deudaAnt > 0
-      ? `<div class="costo-pendiente-val" style="color:var(--gold);font-size:11px">+${fmtCOP(deudaAnt)} mes ant.</div>`
-      : '';
+    // Build info tags
+    let infoTags = '';
+    if (totalPendiente > 0) {
+      infoTags += `<div class="costo-pendiente-val">debe: ${fmtCOP(totalPendiente)}</div>`;
+    } else {
+      infoTags += `<div class="costo-pendiente-val" style="color:var(--green)">✓</div>`;
+    }
+    if (deudaAnt > 0) {
+      infoTags += `<div class="costo-pendiente-val" style="color:var(--gold);font-size:11px">+${fmtCOP(deudaAnt)} mes ant.</div>`;
+    }
+    if (exMes > 0) {
+      infoTags += `<div class="costo-pendiente-val" style="color:var(--accent);font-size:11px">↑ ${fmtCOP(exMes)} abono mes sig.</div>`;
+    } else if (exAnt > 0 && pendienteMes === 0 && deudaAnt === 0) {
+      // Credit from prev month covers this month too
+      infoTags += `<div class="costo-pendiente-val" style="color:var(--accent);font-size:11px">↑ ${fmtCOP(exAnt)} crédito aplicado</div>`;
+    }
 
     return `<div class="costo-row">
       <div class="costo-dot ${dotClass}"></div>
@@ -883,14 +936,12 @@ function renderCostosFijos() {
       </div>
       <div class="costo-monto">
         <div class="costo-esperado">${fmtCOP(mensualDisplay)}</div>
-        ${totalPendiente > 0
-          ? `<div class="costo-pendiente-val">debe: ${fmtCOP(totalPendiente)}</div>`
-          : '<div class="costo-pendiente-val" style="color:var(--green)">✓</div>'}
-        ${deudaTag}
+        ${infoTags}
       </div>
     </div>`;
   }).join('');
 
+  // Alert banner for carried debts
   let alertHtml = '';
   if (alertas.length > 0) {
     const lista = alertas.map(a=>`${a.nombre}: ${fmtCOP(a.monto)}`).join(' · ');
