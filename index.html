@@ -1085,7 +1085,7 @@ function renderCostosFijos() {
     const deudaAnt  = balance.deuda;
     const exAnt     = balance.excedente;
 
-    let mensualDisplay, pendienteMes;
+    let mensualDisplay, pendienteMes, deudaAccum = 0;
     if (cf.tipo==='lili') {
       mensualDisplay = liliMensualActual();
       pendienteMes   = Math.max(0, mensualDisplay - exAnt - pagadoMes);
@@ -1096,7 +1096,14 @@ function renderCostosFijos() {
       mensualDisplay    = cf.mensual;
       const meses       = monthDiff(INICIO_MES,now)+1;
       const totalPagado = allEgresos.filter(r=>r.desc.toUpperCase()===kw).reduce((s,r)=>s+Math.abs(r.valor),0);
-      pendienteMes      = Math.max(0, cf.mensual*meses - totalPagado);
+      const totalPend   = Math.max(0, cf.mensual*meses - totalPagado);
+      // Current month portion
+      pendienteMes = Math.max(0, cf.mensual - pagadoMes);
+      // For the alert: show only the PREVIOUS MONTH's unpaid portion (not full backlog)
+      // This keeps the alert focused on what specifically wasn't paid last month
+      const prevMonthPagado = pagadoEnMes(allEgresos, kw, prevMonthOf(now).year, prevMonthOf(now).month);
+      deudaAccum = prevMonthPagado < cf.mensual ? Math.min(cf.mensual - prevMonthPagado, totalPend - pendienteMes) : 0;
+      deudaAccum = Math.max(0, deudaAccum);
     } else if (cf.tipo==='variable') {
       mensualDisplay = cf.mensual;
       pendienteMes   = pagadoMes>0 ? 0 : cf.mensual;
@@ -1105,10 +1112,12 @@ function renderCostosFijos() {
       pendienteMes   = Math.max(0, cf.mensual - pagadoMes);
     }
 
-    const totalEsperado  = mensualDisplay + deudaAnt;
-    const totalRecibido  = pagadoMes + exAnt;
-    const exMes          = (cf.tipo!=='accum'&&cf.tipo!=='variable') ? Math.max(0, totalRecibido - totalEsperado) : 0;
-    const totalPendiente = pendienteMes + deudaAnt;
+    // For accum, treat deudaAccum like deudaAnt for display purposes
+    const efectiveDeudaAnt = deudaAnt + deudaAccum;
+    const totalEsperado    = mensualDisplay + efectiveDeudaAnt;
+    const totalRecibido    = pagadoMes + exAnt;
+    const exMes            = (cf.tipo!=='accum'&&cf.tipo!=='variable') ? Math.max(0, totalRecibido - totalEsperado) : 0;
+    const totalPendiente   = pendienteMes + efectiveDeudaAnt;
 
     let estado, dotClass;
     if (exMes>0)               { estado='PAGADO';    dotClass='excedente'; }
@@ -1116,9 +1125,8 @@ function renderCostosFijos() {
     else if (pagadoMes>0)       { estado='PARCIAL';   dotClass='parcial'; }
     else                         { estado='PENDIENTE'; dotClass='pendiente'; }
 
-    if (deudaAnt>0 && totalPendiente>0 && deudaAnt>exMes) {
-      // Only alert if the previous debt wasn't fully covered by this month's payments
-      const deudaAunPendiente = Math.min(deudaAnt, totalPendiente);
+    if (efectiveDeudaAnt>0 && totalPendiente>0 && efectiveDeudaAnt>exMes) {
+      const deudaAunPendiente = Math.min(efectiveDeudaAnt, totalPendiente);
       alertas.push({nombre:cf.nombre, montoPrev:deudaAunPendiente, montoMes:pendienteMes});
     }
 
@@ -1154,22 +1162,25 @@ function renderCostosFijos() {
     const balance   = calcBalanceAnterior(cf, allEgresos, now);
     const deudaAnt  = balance.deuda;
     const exAnt     = balance.excedente;
-    let mensual, pendiente;
-    if (cf.tipo==='lili')       { mensual=liliMensualActual(); pendiente=Math.max(0,mensual-exAnt-pagadoMes); }
-    else if (cf.tipo==='alejo') { mensual=1900000; pendiente=Math.max(0,mensual-exAnt-pagadoMes); }
+    let mensual, pendienteMes2, deudaAccum2 = 0;
+    if (cf.tipo==='lili')       { mensual=liliMensualActual(); pendienteMes2=Math.max(0,mensual-exAnt-pagadoMes); }
+    else if (cf.tipo==='alejo') { mensual=1900000; pendienteMes2=Math.max(0,mensual-exAnt-pagadoMes); }
     else if (cf.tipo==='accum') {
       mensual=cf.mensual;
       const tot=allEgresos.filter(r=>r.desc.toUpperCase()===kw).reduce((s,r)=>s+Math.abs(r.valor),0);
-      pendiente=Math.max(0,cf.mensual*(monthDiff(INICIO_MES,now)+1)-tot);
-    } else if (cf.tipo==='variable') { mensual=cf.mensual; pendiente=pagadoMes>0?0:cf.mensual; }
-    else { mensual=cf.mensual; pendiente=Math.max(0,cf.mensual-pagadoMes); }
-    const totalEsp = mensual + deudaAnt;
-    const totalRec = pagadoMes + exAnt;
-    const exMes    = (cf.tipo!=='accum'&&cf.tipo!=='variable')?Math.max(0,totalRec-totalEsp):0;
-    const totPend  = pendiente + deudaAnt;
-    if (exMes===0 && totPend>0) {
-      totalPendienteMes   += pendiente;
-      totalDeudaArrastrada += Math.min(deudaAnt, totPend);
+      const totalPend2=Math.max(0,cf.mensual*(monthDiff(INICIO_MES,now)+1)-tot);
+      pendienteMes2=Math.max(0,cf.mensual-pagadoMes);
+      const prevPag2=pagadoEnMes(allEgresos,kw,prevMonthOf(now).year,prevMonthOf(now).month);
+      deudaAccum2=Math.max(0, prevPag2<cf.mensual ? Math.min(cf.mensual-prevPag2, totalPend2-pendienteMes2) : 0);
+    } else if (cf.tipo==='variable') { mensual=cf.mensual; pendienteMes2=pagadoMes>0?0:cf.mensual; }
+    else { mensual=cf.mensual; pendienteMes2=Math.max(0,cf.mensual-pagadoMes); }
+    const efectDeuda = deudaAnt + deudaAccum2;
+    const totalRec   = pagadoMes + exAnt;
+    const exMes2     = (cf.tipo!=='accum'&&cf.tipo!=='variable')?Math.max(0,totalRec-(mensual+efectDeuda)):0;
+    const totPend    = pendienteMes2 + efectDeuda;
+    if (exMes2===0 && totPend>0) {
+      totalPendienteMes    += pendienteMes2;
+      totalDeudaArrastrada += Math.min(efectDeuda, totPend);
     }
   });
 
