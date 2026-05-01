@@ -521,7 +521,10 @@ html, body {
   <div class="header">
     <div class="header-top">
       <div class="logo">Apu<span>nayni</span></div>
-      <button class="sync-btn" id="syncBtn" onclick="syncData()" title="Sincronizar">⟳</button>
+      <div style="display:flex;gap:8px">
+        <button class="sync-btn" id="shareBtn" onclick="compartirResumen()" title="Compartir resumen">↗</button>
+        <button class="sync-btn" id="syncBtn" onclick="syncData()" title="Sincronizar">⟳</button>
+      </div>
     </div>
     <div class="status-bar">
       <div class="status-dot" id="statusDot"></div>
@@ -1588,6 +1591,106 @@ function setStatus(type, text) {
   const dot = document.getElementById('statusDot');
   dot.className = 'status-dot' + (type ? ' '+type : '');
   document.getElementById('statusText').textContent = text;
+}
+
+// ─── COMPARTIR RESUMEN ───────────────────────────────────────────────────────
+async function compartirResumen() {
+  const now    = new Date();
+  const meses  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                  'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const mesNom = meses[now.getMonth()];
+
+  // ── Build text summary ──────────────────────────────────────────────
+  const allEgresos = state.rows.filter(r => r.ie==='EGRESO');
+  const mesRows    = allEgresos.filter(r => {
+    const d = parseFecha(r.fecha);
+    return d && d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+  });
+  const mesIngresos = state.rows.filter(r => {
+    const d = parseFecha(r.fecha);
+    return d && d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear() && r.ie==='INGRESO';
+  });
+
+  // Saldos
+  const saldos = {};
+  ['BANCOLOMBIA','EFECTIVO','NU','NEQUI','DAVIVIENDA','DAVIPLATA'].forEach(m => {
+    saldos[m] = state.rows.filter(r=>r.medio.toUpperCase()===m).reduce((s,r)=>s+r.valor,0);
+  });
+  const totalGeneral = Object.values(saldos).reduce((a,b)=>a+b,0);
+
+  // Mes
+  const ingMes = mesIngresos.reduce((s,r)=>s+r.valor,0);
+  const egrMes = mesRows.reduce((s,r)=>s+Math.abs(r.valor),0);
+  const netoMes = ingMes - egrMes;
+
+  // Costos fijos
+  let costoLines = '';
+  let totalPend = 0;
+  COSTOS_FIJOS_DEF.forEach(cf => {
+    const kw = cf.keyword.toUpperCase();
+    const pagadoMes = mesRows.filter(r=>r.desc.toUpperCase()===kw).reduce((s,r)=>s+Math.abs(r.valor),0);
+    const balance   = calcBalanceAnterior(cf, allEgresos, now);
+    const exAnt = balance.excedente;
+    let mensual = cf.tipo==='lili' ? liliMensualActual() : (cf.mensual||0);
+    let pendiente;
+    if (cf.tipo==='accum') {
+      const mesesN = monthDiff(INICIO_MES,now)+1;
+      const totPag = allEgresos.filter(r=>r.desc.toUpperCase()===kw).reduce((s,r)=>s+Math.abs(r.valor),0);
+      pendiente = Math.max(0, mensual*mesesN - totPag);
+    } else {
+      pendiente = Math.max(0, mensual - exAnt - pagadoMes) + balance.deuda;
+    }
+    const estado = pendiente===0 ? '✅' : (pagadoMes>0||exAnt>0 ? '🔶' : '🔴');
+    costoLines += `${estado} ${cf.nombre}: ${pendiente===0 ? 'PAGADO' : '-'+fmtCOP(pendiente)}\n`;
+    if (pendiente > 0) totalPend += pendiente;
+  });
+
+  const texto =
+`📊 *APUNAYNI — RESUMEN ${mesNom.toUpperCase()} ${now.getFullYear()}*
+
+💰 *SALDOS POR CUENTA*
+🏦 Bancolombia: ${fmtCOP(saldos['BANCOLOMBIA'])}
+💵 Efectivo: ${fmtCOP(saldos['EFECTIVO'])}
+${saldos['NU']!==0?`🟣 Nu: ${fmtCOP(saldos['NU'])}\n`:''}${saldos['NEQUI']!==0?`🩷 Nequi: ${fmtCOP(saldos['NEQUI'])}\n`:''}💼 *Total general: ${fmtCOP(totalGeneral)}*
+
+📅 *${mesNom} ${now.getFullYear()}*
+↑ Ingresos: ${fmtCOP(ingMes)}
+↓ Egresos: ${fmtCOP(egrMes)}
+${netoMes>=0?'✅':'⚠'} Saldo neto: ${fmtCOP(netoMes)}
+
+📋 *COSTOS FIJOS*
+${costoLines}
+${totalPend>0?`⚠ Total por pagar: ${fmtCOP(totalPend)}`:'✅ Todos los costos al día'}
+
+_Generado desde App Apunayni · ${now.toLocaleDateString('es-CO')}_`;
+
+  // ── Try Web Share API (native share sheet) ──────────────────────────
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: `Apunayni — ${mesNom} ${now.getFullYear()}`, text: texto });
+      return;
+    } catch(e) {
+      if (e.name === 'AbortError') return; // user cancelled
+    }
+  }
+
+  // ── Fallback: copy to clipboard ─────────────────────────────────────
+  try {
+    await navigator.clipboard.writeText(texto);
+    showToast('📋 Resumen copiado al portapapeles', 'success');
+  } catch(e) {
+    // Last resort: show in a modal
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px';
+    overlay.innerHTML = `
+      <div style="background:var(--surface);border-radius:16px;padding:20px;width:100%;max-width:400px;max-height:80vh;overflow-y:auto">
+        <div style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--gold)">Resumen para compartir</div>
+        <textarea style="width:100%;height:300px;background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:8px;padding:10px;font-size:12px;font-family:monospace;resize:none">${texto}</textarea>
+        <button onclick="this.closest('div').parentElement.remove()" style="margin-top:12px;width:100%;padding:12px;background:var(--gold);color:#1a1200;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer">Cerrar</button>
+      </div>`;
+    overlay.addEventListener('click', e => { if(e.target===overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+  }
 }
 
 function showToast(msg, type='') {
