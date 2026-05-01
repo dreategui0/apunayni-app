@@ -1099,16 +1099,15 @@ function renderCostosFijos() {
       mensualDisplay = 1900000;
       pendienteMes   = Math.max(0, mensualDisplay - exAnt - pagadoMes);
     } else if (cf.tipo==='accum') {
-      // deudaAnt already contains full historical debt from calcBalanceAnterior
-      // pendienteMes = just this month's portion unpaid
       mensualDisplay = cf.mensual;
-      pendienteMes   = Math.max(0, cf.mensual - pagadoMes);
+      pendienteMes   = Math.max(0, cf.mensual - exAnt - pagadoMes);
     } else if (cf.tipo==='variable') {
       mensualDisplay = cf.mensual;
-      pendienteMes   = pagadoMes>0 ? 0 : cf.mensual;
+      pendienteMes   = (pagadoMes > 0 || exAnt >= cf.mensual) ? 0 : cf.mensual;
     } else {
+      // fixed
       mensualDisplay = cf.mensual;
-      pendienteMes   = Math.max(0, cf.mensual - pagadoMes);
+      pendienteMes   = Math.max(0, cf.mensual - exAnt - pagadoMes);
     }
 
     const totalEsperado  = mensualDisplay + deudaAnt;
@@ -1116,11 +1115,24 @@ function renderCostosFijos() {
     const exMes          = (cf.tipo!=='variable') ? Math.max(0, totalRecibido - totalEsperado) : 0;
     const totalPendiente = pendienteMes + deudaAnt;
 
+    // "efectivamentePagado" = lo que realmente cubre la deuda de este mes
+    // = pagos del mes + crédito del mes anterior
+    const efectivamentePagado = pagadoMes + exAnt;
+
     let estado, dotClass;
-    if (exMes>0)               { estado='PAGADO';    dotClass='excedente'; }
-    else if (totalPendiente===0){ estado='PAGADO';    dotClass='pagado'; }
-    else if (pagadoMes>0)       { estado='PARCIAL';   dotClass='parcial'; }
-    else                         { estado='PENDIENTE'; dotClass='pendiente'; }
+    if (exMes > 0) {
+      // Paid more than expected (including any carryover) → PAGADO with surplus
+      estado = 'PAGADO'; dotClass = 'excedente';
+    } else if (totalPendiente === 0) {
+      // Exactly covered → PAGADO
+      estado = 'PAGADO'; dotClass = 'pagado';
+    } else if (efectivamentePagado > 0) {
+      // Something has been applied (either new payment or credit) but not fully covered → PARCIAL
+      estado = 'PARCIAL'; dotClass = 'parcial';
+    } else {
+      // Nothing paid or applied → PENDIENTE
+      estado = 'PENDIENTE'; dotClass = 'pendiente';
+    }
 
     if (deudaAnt>0 && totalPendiente>0 && deudaAnt>exMes) {
       const deudaAunPendiente = Math.min(deudaAnt, totalPendiente);
