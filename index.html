@@ -560,6 +560,16 @@ html, body {
 
     <!-- ── SCREEN: MOVIMIENTOS ────────────────────────────── -->
     <div class="screen" id="screenMovimientos">
+      <!-- Header with sheets link -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0 12px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;color:var(--text3);text-transform:uppercase">Movimientos</div>
+        <a id="sheetsLink" href="#" target="_blank"
+          style="display:flex;align-items:center;gap:6px;background:var(--surface2);
+          border:1px solid var(--border2);border-radius:20px;padding:6px 12px;
+          text-decoration:none;color:var(--text2);font-size:12px;font-weight:500">
+          <span style="font-size:14px">📊</span> Ver en Sheets
+        </a>
+      </div>
       <div id="movimientosBody">
         <!-- populated by JS -->
       </div>
@@ -659,10 +669,16 @@ html, body {
     <!-- ── SCREEN: ANÁLISIS HISTÓRICO ───────────────────────────── -->
     <div class="screen" id="screenAnalisis">
       <div style="padding-top:8px">
-        <div class="card-title" style="margin-bottom:12px">ANÁLISIS HISTÓRICO</div>
+
+        <!-- Mode toggles FIRST so they're always visible -->
+        <div style="display:flex;gap:8px;margin-bottom:14px">
+          <button class="chip" id="toggle_tipo"  onclick="setAnalisisMode('tipo')">Por tipo</button>
+          <button class="chip active" id="toggle_desc" onclick="setAnalisisMode('desc')">Por descripción</button>
+          <button class="chip" id="toggle_medio" onclick="setAnalisisMode('medio')">Por cuenta</button>
+        </div>
 
         <!-- Search/filter bar -->
-        <div style="position:relative;margin-bottom:12px">
+        <div style="position:relative;margin-bottom:10px">
           <input type="text" id="analisisSearch" class="form-input"
             placeholder="Buscar: GAS, SALARIOS, RESERVAS..."
             oninput="onAnalisisSearch()" style="padding-right:40px">
@@ -671,13 +687,14 @@ html, body {
         </div>
 
         <!-- Keyword chips -->
-        <div class="chip-group" id="analisisChips" style="margin-bottom:16px"></div>
+        <div class="chip-group" id="analisisChips" style="margin-bottom:12px"></div>
 
-        <!-- Toggle: TIPO vs DESCRIPCION -->
-        <div style="display:flex;gap:8px;margin-bottom:16px">
-          <button class="chip" id="toggle_tipo"  onclick="setAnalisisMode('tipo')">Por tipo</button>
-          <button class="chip active" id="toggle_desc"  onclick="setAnalisisMode('desc')">Por descripción</button>
-          <button class="chip" id="toggle_medio" onclick="setAnalisisMode('medio')">Por cuenta</button>
+        <!-- Explanation note -->
+        <div style="font-size:11px;color:var(--text3);padding:8px 10px;
+          background:var(--surface2);border-radius:8px;margin-bottom:14px;line-height:1.5">
+          ℹ️ <strong>Por tipo</strong> agrupa por rubro (APUNAYNI, SALARIOS…). 
+          <strong>Por cuenta</strong> agrupa por medio de pago (BANCOLOMBIA, EFECTIVO…). 
+          Los totales pueden diferir porque un mismo movimiento pertenece a un tipo Y a una cuenta.
         </div>
 
         <!-- Results -->
@@ -946,6 +963,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function initApp() {
   document.getElementById('setupScreen').style.display = 'none';
+  // Set Google Sheets direct link
+  const sheetsLink = document.getElementById('sheetsLink');
+  if (sheetsLink && state.sheetId) {
+    sheetsLink.href = `https://docs.google.com/spreadsheets/d/${state.sheetId}/edit`;
+  }
   initForm();
   renderConfig();
   renderGlosario();
