@@ -4,7 +4,7 @@ Aplicación web progresiva (PWA) de contabilidad diseñada para pequeños negoci
 
 ## Demo en vivo
 
-🔗 [dreategui0.github.io/apunayni-app](https://dreategui0.github.io/apunayni-app)
+🔗 [Ver demo en vivo] (https://youtu.be/YTG9_GSGqY0)
 
 Instálala como app en tu celular: en Android abre Chrome → menú → *"Añadir a pantalla de inicio"*. En iPhone usa Safari → compartir → *"Añadir a pantalla de inicio"*.
 
