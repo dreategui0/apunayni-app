@@ -727,11 +727,15 @@ html, body {
     <!-- ── SCREEN: ANÁLISIS ──────────────────────────────────── -->
     <!-- ── SCREEN: ANÁLISIS ────────────────────────────── -->
     <div class="screen" id="screenAnalisis">
-      <!-- Tab selector -->
-      <div style="display:flex;gap:6px;margin-bottom:16px;padding-top:8px">
-        <button class="ana-tab active" id="anaTab0" onclick="setAnaTab(0)">Ingresos</button>
-        <button class="ana-tab" id="anaTab1" onclick="setAnaTab(1)">Egresos</button>
-        <button class="ana-tab" id="anaTab2" onclick="setAnaTab(2)">Por cuenta</button>
+      <!-- Tab selector - sticky so always visible while scrolling -->
+      <div style="position:sticky;top:0;z-index:10;background:var(--bg);
+                  padding:10px 0 10px;margin:0 -20px;padding-left:20px;padding-right:20px;
+                  border-bottom:1px solid var(--border);margin-bottom:16px">
+        <div style="display:flex;gap:6px">
+          <button class="ana-tab active" id="anaTab0" onclick="setAnaTab(0)">Ingresos</button>
+          <button class="ana-tab" id="anaTab1" onclick="setAnaTab(1)">Egresos</button>
+          <button class="ana-tab" id="anaTab2" onclick="setAnaTab(2)">Por cuenta</button>
+        </div>
       </div>
       <div id="anaContent"></div>
     </div>
