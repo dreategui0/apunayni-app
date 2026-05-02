@@ -667,10 +667,10 @@ html, body {
   </div>
 
     <!-- ── SCREEN: ANÁLISIS HISTÓRICO ───────────────────────────── -->
-    <div class="screen" id="screenAnalisis" style="padding:0;overflow:hidden;display:flex;flex-direction:column">
+    <div class="screen" id="screenAnalisis" style="padding:0 0 120px 0">
 
-      <!-- Sticky controls — never scroll away -->
-      <div style="flex-shrink:0;padding:10px 20px 0;background:var(--bg)">
+      <!-- Sticky controls — stick to top while results scroll -->
+      <div style="position:sticky;top:0;z-index:10;padding:10px 20px 0;background:var(--bg)">
         <div style="display:flex;gap:8px;margin-bottom:10px">
           <button class="chip" id="toggle_tipo"  onclick="setAnalisisMode('tipo')">Por tipo</button>
           <button class="chip active" id="toggle_desc" onclick="setAnalisisMode('desc')">Por descripción</button>
@@ -692,8 +692,7 @@ html, body {
       </div>
 
       <!-- Scrollable results -->
-      <div id="analisisResult"
-        style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 20px 120px">
+      <div id="analisisResult" style="padding:4px 20px 0">
       </div>
     </div>
 
@@ -1528,14 +1527,7 @@ function showScreen(idx) {
   const screens = ['screenResumen','screenMovimientos','screenNueva','screenConfig','screenAnalisis'];
   screens.forEach((s,i) => {
     const el = document.getElementById(s);
-    if (i === idx) {
-      // Analytics needs flex, others use block
-      el.style.display = (i === 4) ? 'flex' : 'block';
-      el.classList.add('active');
-    } else {
-      el.classList.remove('active');
-      el.style.display = 'none';
-    }
+    el.classList.toggle('active', i===idx);
   });
   for(let i=0;i<5;i++) {
     const btn = document.getElementById('nav'+i);
