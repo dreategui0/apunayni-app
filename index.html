@@ -114,7 +114,7 @@ html, body {
 .tab.active { color: var(--text); border-bottom-color: var(--gold); }
 
 /* ── SCREENS ─────────────────────────────────────────────────────────── */
-.screens { flex: 1; overflow: hidden; position: relative; }
+.screens { flex: 1; overflow: hidden; position: relative; min-height: 0; }
 .screen {
   position: absolute; inset: 0;
   overflow-y: auto; -webkit-overflow-scrolling: touch;
@@ -1584,7 +1584,10 @@ function showScreen(idx) {
   if (tabBar) tabBar.style.display = idx===4 ? 'block' : 'none';
   // Analytics screen uses flow layout so .screens needs to scroll
   const screensEl = document.querySelector('.screens');
-  if (screensEl) screensEl.style.overflowY = idx===4 ? 'auto' : 'hidden';
+  if (screensEl) {
+    screensEl.style.overflowY = idx===4 ? 'auto' : 'hidden';
+    screensEl.style.webkitOverflowScrolling = idx===4 ? 'touch' : '';
+  }
   state.currentScreen = idx;
   if (idx===4) initAnalisis();
 }
