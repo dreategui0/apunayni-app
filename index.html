@@ -534,25 +534,21 @@ html, body {
 
   <!-- Analytics controls panel - outside scroll, inside app flex -->
   <div id="analisisControls" style="display:none;flex-shrink:0;
-    padding:8px 20px 0;background:var(--bg);border-bottom:1px solid var(--border)">
-    <div style="display:flex;gap:8px;margin-bottom:10px">
-      <button class="chip" id="toggle_tipo"  onclick="setAnalisisMode('tipo')">Por tipo</button>
-      <button class="chip active" id="toggle_desc" onclick="setAnalisisMode('desc')">Por descripción</button>
-      <button class="chip" id="toggle_medio" onclick="setAnalisisMode('medio')">Por cuenta</button>
+    padding:8px 20px 8px;background:var(--bg);border-bottom:1px solid var(--border);
+    max-height:45vh;overflow-y:auto">
+    <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:nowrap">
+      <button class="chip" id="toggle_tipo"  onclick="setAnalisisMode('tipo')" style="flex-shrink:0;padding:7px 10px;font-size:12px">Por tipo</button>
+      <button class="chip active" id="toggle_desc" onclick="setAnalisisMode('desc')" style="flex-shrink:0;padding:7px 10px;font-size:12px">Por descripción</button>
+      <button class="chip" id="toggle_medio" onclick="setAnalisisMode('medio')" style="flex-shrink:0;padding:7px 10px;font-size:12px">Por cuenta</button>
     </div>
-    <div style="position:relative;margin-bottom:10px">
+    <div style="position:relative;margin-bottom:8px">
       <input type="text" id="analisisSearch" class="form-input"
         placeholder="Buscar: GAS, SALARIOS, RESERVAS..."
-        oninput="onAnalisisSearch()" style="padding-right:40px">
+        oninput="onAnalisisSearch()" style="padding-right:40px;padding-top:10px;padding-bottom:10px">
       <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);
         color:var(--text3);font-size:16px;pointer-events:none">🔍</span>
     </div>
-    <div class="chip-group" id="analisisChips" style="margin-bottom:10px"></div>
-    <div style="font-size:11px;color:var(--text3);padding:7px 10px;
-      background:var(--surface2);border-radius:8px;margin-bottom:10px;line-height:1.5">
-      ℹ️ <strong>Por tipo</strong> agrupa por rubro. <strong>Por cuenta</strong> agrupa por medio de pago.
-      Los totales difieren porque son dos dimensiones distintas del mismo movimiento.
-    </div>
+    <div class="chip-group" id="analisisChips" style="margin-bottom:6px"></div>
   </div>
 
   <div class="screens">
@@ -1764,15 +1760,14 @@ function onAnalisisSearch() {
 }
 
 function renderAnaChips(keys) {
-  document.getElementById('analisisChips').innerHTML = keys.slice(0,30).map(k =>
-    `<div class="chip${k===anaState.keyword?' active':''}" onclick="selectAnaKeyword('${k.replace(/'/g,"\'")}')">
-      ${k}
-    </div>`
-  ).join('');
+  document.getElementById('analisisChips').innerHTML = keys.slice(0,30).map(k => {
+    const safe = k.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return `<div class="chip${k===anaState.keyword?' active':''}" onclick="selectAnaKeyword('${safe}')">${k}</div>`;
+  }).join('');
 }
 
 function selectAnaKeyword(kw) {
-  anaState.keyword = kw;
+  anaState.keyword = kw.trim();
   renderAnaChips(getAnaKeys(anaState.mode));
   renderAnaResult();
 }
