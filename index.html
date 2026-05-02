@@ -591,6 +591,16 @@ html, body {
 
 
 
+  <!-- Analytics tab bar - flex sibling of .screens, same level as header -->
+  <div id="anaTabBar" style="display:none;flex-shrink:0;
+       padding:10px 20px;background:var(--bg);border-bottom:1px solid var(--border)">
+    <div style="display:flex;gap:6px">
+      <button class="ana-tab active" id="anaTab0" onclick="setAnaTab(0)">Ingresos</button>
+      <button class="ana-tab" id="anaTab1" onclick="setAnaTab(1)">Egresos</button>
+      <button class="ana-tab" id="anaTab2" onclick="setAnaTab(2)">Por cuenta</button>
+    </div>
+  </div>
+
   <div class="screens">
     <!-- ── SCREEN: RESUMEN ─────────────────────────────────── -->
     <div class="screen active" id="screenResumen">
@@ -727,16 +737,6 @@ html, body {
     <!-- ── SCREEN: ANÁLISIS ──────────────────────────────────── -->
     <!-- ── SCREEN: ANÁLISIS ────────────────────────────── -->
     <div class="screen" id="screenAnalisis">
-      <!-- Tab selector - sticky so always visible while scrolling -->
-      <div style="position:sticky;top:0;z-index:10;background:var(--bg);
-                  padding:10px 0 10px;margin:0 -20px;padding-left:20px;padding-right:20px;
-                  border-bottom:1px solid var(--border);margin-bottom:16px">
-        <div style="display:flex;gap:6px">
-          <button class="ana-tab active" id="anaTab0" onclick="setAnaTab(0)">Ingresos</button>
-          <button class="ana-tab" id="anaTab1" onclick="setAnaTab(1)">Egresos</button>
-          <button class="ana-tab" id="anaTab2" onclick="setAnaTab(2)">Por cuenta</button>
-        </div>
-      </div>
       <div id="anaContent"></div>
     </div>
 
@@ -1578,6 +1578,9 @@ function showScreen(idx) {
     const btn = document.getElementById('nav'+i);
     if (btn) btn.classList.toggle('active',i===idx);
   }
+  // Show analytics tab bar only on analytics screen
+  const tabBar = document.getElementById('anaTabBar');
+  if (tabBar) tabBar.style.display = idx===4 ? 'block' : 'none';
   state.currentScreen = idx;
   if (idx===4) initAnalisis();
 }
