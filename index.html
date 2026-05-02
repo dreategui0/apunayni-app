@@ -383,6 +383,63 @@ html, body {
 .toast.success { border-color: var(--green); color: var(--green); }
 .toast.error   { border-color: var(--red);   color: var(--red); }
 
+/* ── ANALYTICS TABS ─────────────────────────────────────────────────── */
+.ana-tab {
+  flex-shrink: 0; padding: 9px 18px; border-radius: 20px;
+  border: 1.5px solid var(--border2); background: var(--surface2);
+  color: var(--text2); font-family: var(--font-body); font-size: 13px;
+  font-weight: 600; cursor: pointer; transition: all 0.18s;
+  white-space: nowrap;
+}
+.ana-tab.active {
+  background: var(--accent-dim); border-color: var(--accent); color: var(--text);
+}
+.ana-section-title {
+  font-size: 12px; font-weight: 700; letter-spacing: 0.07em;
+  text-transform: uppercase; color: var(--text3); margin: 18px 0 10px;
+}
+.ana-stat-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;
+}
+.ana-stat-box {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 14px;
+}
+.ana-stat-box.full { grid-column: 1 / -1; }
+.ana-stat-lbl { font-size: 11px; color: var(--text3); margin-bottom: 4px; }
+.ana-stat-val { font-size: 18px; font-weight: 700; font-family: var(--font-display); }
+/* Bar chart */
+.ana-bar-row {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+}
+.ana-bar-label { font-size: 11px; color: var(--text2); width: 46px; flex-shrink:0; text-align:right; }
+.ana-bar-track {
+  flex: 1; height: 24px; background: var(--surface2);
+  border-radius: 5px; overflow: hidden; position: relative;
+}
+.ana-bar-fill {
+  height: 100%; border-radius: 5px; display: flex;
+  align-items: center; padding: 0 8px;
+  transition: width 0.6s cubic-bezier(.4,0,.2,1);
+  min-width: 2px;
+}
+.ana-bar-fill.ing { background: linear-gradient(90deg,rgba(46,204,138,.4),rgba(46,204,138,.8)); }
+.ana-bar-fill.egr { background: linear-gradient(90deg,rgba(255,95,109,.4),rgba(255,95,109,.8)); }
+.ana-bar-fill.neu { background: linear-gradient(90deg,rgba(124,110,255,.4),rgba(124,110,255,.8)); }
+.ana-bar-fill span { font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; }
+/* Pie chart */
+.pie-wrap { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+.pie-legend { flex: 1; }
+.pie-legend-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 12px;
+}
+.pie-legend-row:last-child { border-bottom: none; }
+.pie-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.pie-legend-name { flex: 1; color: var(--text2); }
+.pie-legend-pct { font-weight: 700; color: var(--text); }
+.pie-legend-val { font-size: 11px; color: var(--text3); margin-left: 4px; }
+
 /* ── ANALYTICS SCREEN ───────────────────────────────────────────────── */
 .ana-summary {
   display: grid; grid-template-columns: 1fr 1fr;
@@ -532,24 +589,7 @@ html, body {
     </div>
   </div>
 
-  <!-- Analytics controls panel - outside scroll, inside app flex -->
-  <div id="analisisControls" style="display:none;flex-shrink:0;
-    padding:8px 20px 8px;background:var(--bg);border-bottom:1px solid var(--border);
-    max-height:45vh;overflow-y:auto">
-    <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:nowrap">
-      <button class="chip" id="toggle_tipo"  onclick="setAnalisisMode('tipo')" style="flex-shrink:0;padding:7px 10px;font-size:12px">Por tipo</button>
-      <button class="chip active" id="toggle_desc" onclick="setAnalisisMode('desc')" style="flex-shrink:0;padding:7px 10px;font-size:12px">Por descripción</button>
-      <button class="chip" id="toggle_medio" onclick="setAnalisisMode('medio')" style="flex-shrink:0;padding:7px 10px;font-size:12px">Por cuenta</button>
-    </div>
-    <div style="position:relative;margin-bottom:8px">
-      <input type="text" id="analisisSearch" class="form-input"
-        placeholder="Buscar: GAS, SALARIOS, RESERVAS..."
-        oninput="onAnalisisSearch()" style="padding-right:40px;padding-top:10px;padding-bottom:10px">
-      <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);
-        color:var(--text3);font-size:16px;pointer-events:none">🔍</span>
-    </div>
-    <div class="chip-group" id="analisisChips" style="margin-bottom:6px"></div>
-  </div>
+
 
   <div class="screens">
     <!-- ── SCREEN: RESUMEN ─────────────────────────────────── -->
@@ -684,11 +724,19 @@ html, body {
       </div>
     </div>
   </div>
+    <!-- ── SCREEN: ANÁLISIS ──────────────────────────────────── -->
+    <!-- ── SCREEN: ANÁLISIS ────────────────────────────── -->
     <div class="screen" id="screenAnalisis">
-      <div id="analisisResult"></div>
+      <!-- Tab selector -->
+      <div style="display:flex;gap:6px;margin-bottom:16px;padding-top:4px">
+        <button class="ana-tab active" id="anaTab0" onclick="setAnaTab(0)">Ingresos</button>
+        <button class="ana-tab" id="anaTab1" onclick="setAnaTab(1)">Egresos</button>
+        <button class="ana-tab" id="anaTab2" onclick="setAnaTab(2)">Por cuenta</button>
+      </div>
+      <div id="anaContent"></div>
     </div>
 
-  <!-- Bottom nav -->
+  <!-- Bottom navv -->
 
   <nav class="bottom-nav">
     <button class="nav-btn active" id="nav0" onclick="showScreen(0)">
@@ -1526,21 +1574,6 @@ function showScreen(idx) {
     const btn = document.getElementById('nav'+i);
     if (btn) btn.classList.toggle('active',i===idx);
   }
-  // Show/hide analytics controls panel
-  const ctrl = document.getElementById('analisisControls');
-  if (ctrl) {
-    const isAna = idx === 4;
-    ctrl.style.display = isAna ? 'block' : 'none';
-    if (isAna) {
-      // After controls render, set padding-top so content isn't hidden under them
-      requestAnimationFrame(() => {
-        const h = ctrl.offsetHeight;
-        document.getElementById('screenAnalisis').style.paddingTop = (h + 8) + 'px';
-      });
-    } else {
-      document.getElementById('screenAnalisis').style.paddingTop = '';
-    }
-  }
   state.currentScreen = idx;
   if (idx===4) initAnalisis();
 }
@@ -1725,295 +1758,276 @@ function showToast(msg, type='') {
 }
 
 // ─── ANALYTICS ─────────────────────────────────────────────────────────────────
-const ANA_MODES = ['tipo','desc','medio'];
-let anaState = { mode: 'desc', keyword: null };
+const MESES_NOM = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const MESES_FULL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const PIE_COLORS_ING = ['#2ecc8a','#7c6eff','#f0c060','#3498db','#e74c3c'];
+const PIE_COLORS_EGR = ['#ff5f6d','#e67e22','#9b59b6','#1abc9c','#e74c3c','#7c6eff'];
+
+let anaTab = 0;
+
+function setAnaTab(idx) {
+  anaTab = idx;
+  for (let i=0;i<3;i++) {
+    const b = document.getElementById('anaTab'+i);
+    if (b) b.classList.toggle('active', i===idx);
+  }
+  renderAnaContent();
+}
 
 function initAnalisis() {
-  const keys = getAnaKeys(anaState.mode);
-  renderAnaChips(keys);
-  if (!anaState.keyword || !keys.includes(anaState.keyword)) {
-    anaState.keyword = keys[0] || null;
-  }
-  renderAnaResult();
+  setAnaTab(anaTab);
 }
 
-function getAnaKeys(mode) {
-  const col = mode==='tipo' ? 'tipo' : mode==='medio' ? 'medio' : 'desc';
-  return [...new Set(state.rows.map(r=>(r[col]||'').toUpperCase().trim()).filter(Boolean))].sort();
+function renderAnaContent() {
+  const div = document.getElementById('anaContent');
+  if (!div) return;
+  if (anaTab===0) div.innerHTML = buildIngresos();
+  else if (anaTab===1) div.innerHTML = buildEgresos();
+  else div.innerHTML = buildPorCuenta();
+  // Animate bars after render
+  requestAnimationFrame(() => animateBars());
 }
 
-function setAnalisisMode(mode) {
-  anaState.mode = mode;
-  anaState.keyword = null;
-  ['tipo','desc','medio'].forEach(m => {
-    const btn = document.getElementById('toggle_'+m);
-    if (btn) btn.classList.toggle('active', m===mode);
+function animateBars() {
+  document.querySelectorAll('.ana-bar-fill[data-w]').forEach(el => {
+    el.style.width = el.dataset.w + '%';
   });
-  document.getElementById('analisisSearch').value = '';
-  initAnalisis();
 }
 
-function onAnalisisSearch() {
-  const q = document.getElementById('analisisSearch').value.toUpperCase().trim();
-  const keys = getAnaKeys(anaState.mode);
-  renderAnaChips(q ? keys.filter(k=>k.includes(q)) : keys);
+// ── Helpers ────────────────────────────────────────────────────────────────
+function getMonths() {
+  const months = [...new Set(state.rows.map(r => {
+    const d = parseFecha(r.fecha);
+    if (!d || d.getFullYear() < 2026) return null;
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  }).filter(Boolean))].sort();
+  return months;
 }
 
-function renderAnaChips(keys) {
-  document.getElementById('analisisChips').innerHTML = keys.slice(0,30).map(k => {
-    const safe = k.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    return `<div class="chip${k===anaState.keyword?' active':''}" onclick="selectAnaKeyword('${safe}')">${k}</div>`;
+function sumBy(rows, filterFn) {
+  return rows.filter(filterFn).reduce((s,r) => s + Math.abs(r.valor), 0);
+}
+
+function rowsInMonth(rows, monthKey) {
+  return rows.filter(r => {
+    const d = parseFecha(r.fecha);
+    if (!d) return false;
+    const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    return k === monthKey;
+  });
+}
+
+// ── Bar chart builder ───────────────────────────────────────────────────────
+function barChart(months, getValue, colorClass, labelFmt) {
+  const vals = months.map(m => getValue(m));
+  const maxV = Math.max(...vals, 1);
+  return months.map((m, i) => {
+    const v = vals[i];
+    const pct = v / maxV * 100;
+    const [y, mo] = m.split('-').map(Number);
+    const label = MESES_NOM[mo-1] + ' ' + String(y).slice(2);
+    return `<div class="ana-bar-row">
+      <div class="ana-bar-label">${label}</div>
+      <div class="ana-bar-track">
+        <div class="ana-bar-fill ${colorClass}" data-w="${pct.toFixed(1)}" style="width:0%">
+          <span>${fmtCOP(v)}</span>
+        </div>
+      </div>
+    </div>`;
   }).join('');
 }
 
-function selectAnaKeyword(kw) {
-  anaState.keyword = kw.trim();
-  renderAnaChips(getAnaKeys(anaState.mode));
-  renderAnaResult();
-}
+// ── SVG Pie chart ───────────────────────────────────────────────────────────
+function pieChart(slices, colors) {
+  // slices: [{label, value}]
+  const total = slices.reduce((s,sl) => s + sl.value, 0);
+  if (total === 0) return '<p style="color:var(--text3);font-size:12px;text-align:center;padding:12px">Sin datos</p>';
 
-function getRowsForKeyword(kw, mode) {
-  const k = kw.toUpperCase();
-  return state.rows.filter(r => {
-    const col = mode==='tipo' ? r.tipo : mode==='medio' ? r.medio : r.desc;
-    return (col||'').toUpperCase().trim() === k;
-  });
-}
+  const r = 70, cx = 80, cy = 80;
+  let paths = '', angle = -Math.PI / 2;
+  const validSlices = slices.filter(s => s.value > 0);
 
-// For Liliana: compute expected and deuda for a given month using initial-debt simulation
-function liliMonthStats(year, month) {
-  // Simulate month-by-month from Feb 2026 to the given month
-  const allEgresos = state.rows.filter(r=>r.ie==='EGRESO');
-  const kw = 'SALARIO-LILIANA';
-  let deudaAcum = LILI_DEUDA_INICIAL;
-  let cursor = new Date(2026, 1, 1); // Feb 2026
-  const target = new Date(year, month, 1);
-
-  let stats = [];
-  while (cursor <= target) {
-    const y = cursor.getFullYear(), m = cursor.getMonth();
-    const esperadoMes = fridaysInMonth(y, m) * 260000;
-    const deudaAnterior = deudaAcum;
-    const totalDebido = esperadoMes + deudaAnterior;
-    const pagado = pagadoEnMes(allEgresos, kw, y, m);
-    const saldoFin = Math.max(0, totalDebido - pagado);
-    const excedente = Math.max(0, pagado - totalDebido);
-    stats.push({ year:y, month:m, esperadoMes, deudaAnterior, totalDebido, pagado, saldoFin, excedente });
-    deudaAcum = saldoFin;
-    cursor.setMonth(cursor.getMonth()+1);
-  }
-  return stats;
-}
-
-function renderAnaResult() {
-  const kw   = anaState.keyword;
-  const mode = anaState.mode;
-  const div  = document.getElementById('analisisResult');
-  if (!kw) { div.innerHTML='<p style="color:var(--text3);text-align:center;padding:24px">Selecciona una opción</p>'; return; }
-
-  const matched = getRowsForKeyword(kw, mode);
-  const isLili  = (mode==='desc' && kw==='SALARIO-LILIANA');
-
-  // Group by month
-  const byMonth = {};
-  matched.forEach(r => {
-    const d = parseFecha(r.fecha);
-    if (!d) return;
-    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    if (!byMonth[key]) byMonth[key] = { y:d.getFullYear(), m:d.getMonth(), ing:0, egr:0, rows:[] };
-    if (r.valor>0) byMonth[key].ing += r.valor;
-    else           byMonth[key].egr += Math.abs(r.valor);
-    byMonth[key].rows.push(r);
-  });
-
-  // If Lili, augment with simulation data
-  let liliStats = {};
-  if (isLili) {
-    const months = Object.keys(byMonth).sort();
-    if (months.length > 0) {
-      const lastM = months[months.length-1];
-      const [ly, lm] = lastM.split('-').map(Number);
-      const stats = liliMonthStats(ly, lm-1);
-      stats.forEach(s => {
-        const key = `${s.year}-${String(s.month+1).padStart(2,'0')}`;
-        liliStats[key] = s;
-      });
+  validSlices.forEach((sl, i) => {
+    const pct = sl.value / total;
+    const sweep = pct * 2 * Math.PI;
+    const x1 = cx + r * Math.cos(angle);
+    const y1 = cy + r * Math.sin(angle);
+    angle += sweep;
+    const x2 = cx + r * Math.cos(angle);
+    const y2 = cy + r * Math.sin(angle);
+    const large = sweep > Math.PI ? 1 : 0;
+    const color = colors[i % colors.length];
+    if (pct > 0.001) {
+      paths += `<path d="M${cx},${cy} L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 ${large},1 ${x2.toFixed(1)},${y2.toFixed(1)} Z"
+        fill="${color}" stroke="var(--bg)" stroke-width="2"/>`;
     }
-    // Also include months that have stats but no payments
-    Object.keys(liliStats).forEach(key => {
-      if (!byMonth[key] && liliStats[key].pagado === 0) {
-        const s = liliStats[key];
-        byMonth[key] = { y:s.year, m:s.month, ing:0, egr:0, rows:[] };
-      }
-    });
-  }
+  });
 
-  const months    = Object.keys(byMonth).sort();
-  const totalIng  = matched.filter(r=>r.valor>0).reduce((s,r)=>s+r.valor,0);
-  const totalEgr  = matched.filter(r=>r.valor<0).reduce((s,r)=>s+Math.abs(r.valor),0);
-  const nomMeses  = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  const nomMesesL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const legend = validSlices.map((sl, i) => {
+    const pct = (sl.value / total * 100).toFixed(1);
+    const color = colors[i % colors.length];
+    return `<div class="pie-legend-row">
+      <div class="pie-dot" style="background:${color}"></div>
+      <div class="pie-legend-name">${sl.label}</div>
+      <span class="pie-legend-pct">${pct}%</span>
+      <span class="pie-legend-val">${fmtCOP(sl.value)}</span>
+    </div>`;
+  }).join('');
 
-  // ── Summary cards ────────────────────────────────────────────────────
-  const neto = totalIng - totalEgr;
-  let summaryHtml = `<div class="ana-summary">
-    ${totalIng>0?`<div class="ana-stat"><div class="ana-stat-label">TOTAL INGRESOS</div>
-      <div class="ana-stat-val green">${fmtCOP(totalIng)}</div></div>`:''}
-    ${totalEgr>0?`<div class="ana-stat"><div class="ana-stat-label">TOTAL EGRESOS</div>
-      <div class="ana-stat-val red">${fmtCOP(totalEgr)}</div></div>`:''}
-    <div class="ana-stat"><div class="ana-stat-label">NETO</div>
-      <div class="ana-stat-val ${neto>=0?'green':'red'}">${fmtCOP(Math.abs(neto))}</div></div>
-    <div class="ana-stat"><div class="ana-stat-label">MOVIMIENTOS</div>
-      <div class="ana-stat-val gold">${matched.length}</div></div>
-    <div class="ana-stat"><div class="ana-stat-label">MESES</div>
-      <div class="ana-stat-val gold">${months.length}</div></div>
-    ${months.length>1?`<div class="ana-stat"><div class="ana-stat-label">PROMEDIO MES</div>
-      <div class="ana-stat-val">${fmtCOP(Math.round(totalEgr>totalIng?totalEgr:totalIng/months.length))}</div></div>`:''}
+  return `<div class="pie-wrap">
+    <svg width="160" height="160" viewBox="0 0 160 160" style="flex-shrink:0">${paths}</svg>
+    <div class="pie-legend">${legend}</div>
+  </div>`;
+}
+
+// ── Month selector for pie ──────────────────────────────────────────────────
+function monthSelector(id, months, selectedKey) {
+  const opts = months.map(m => {
+    const [y, mo] = m.split('-').map(Number);
+    const lbl = MESES_FULL[mo-1] + ' ' + y;
+    const sel = m === selectedKey ? 'selected' : '';
+    return `<option value="${m}" ${sel}>${lbl}</option>`;
+  }).join('');
+  return `<select id="${id}" onchange="renderAnaContent()"
+    style="background:var(--surface2);color:var(--text);border:1px solid var(--border2);
+    border-radius:8px;padding:7px 10px;font-family:var(--font-body);font-size:13px;
+    width:100%;margin-bottom:14px">${opts}</select>`;
+}
+
+// ── INGRESOS tab ────────────────────────────────────────────────────────────
+function buildIngresos() {
+  const months = getMonths();
+  const ing = state.rows.filter(r => r.ie==='INGRESO' && r.tipo?.toUpperCase() !== 'SALDOS');
+  const totalIng = ing.reduce((s,r) => s + r.valor, 0);
+  const avgIng   = months.length ? Math.round(totalIng / months.length) : 0;
+
+  // Summary cards
+  let html = `<div class="ana-stat-grid">
+    <div class="ana-stat-box full">
+      <div class="ana-stat-lbl">TOTAL INGRESOS</div>
+      <div class="ana-stat-val" style="color:var(--green)">${fmtCOP(totalIng)}</div>
+    </div>
+    <div class="ana-stat-box">
+      <div class="ana-stat-lbl">PROMEDIO MES</div>
+      <div class="ana-stat-val">${fmtCOP(avgIng)}</div>
+    </div>
+    <div class="ana-stat-box">
+      <div class="ana-stat-lbl">MESES</div>
+      <div class="ana-stat-val" style="color:var(--gold)">${months.length}</div>
+    </div>
   </div>`;
 
-  // ── Bar chart ────────────────────────────────────────────────────────
-  const maxVal = isLili
-    ? Math.max(...months.map(k => liliStats[k]?.totalDebido || byMonth[k].egr), 1)
-    : Math.max(...months.map(k => Math.max(byMonth[k].ing, byMonth[k].egr)), 1);
+  // Bar chart mes a mes
+  html += `<div class="card-title" style="margin-bottom:10px">Ingresos mes a mes</div>`;
+  html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px">`;
+  html += barChart(months, m => sumBy(rowsInMonth(ing, m), r=>true), 'ing', fmtCOP);
+  html += `</div>`;
 
-  let barsHtml = `<div style="background:var(--surface);border:1px solid var(--border);
-    border-radius:var(--radius);padding:16px;margin-bottom:12px">
-    <div class="card-title" style="margin-bottom:14px">MES A MES</div>`;
+  // Pie selector
+  const selMonth = (() => {
+    const el = document.getElementById('ingPieMes');
+    return el ? el.value : months[months.length-1];
+  })();
+  html += `<div class="card-title" style="margin-bottom:10px">Composición por mes</div>`;
+  html += monthSelector('ingPieMes', months, selMonth);
 
-  months.forEach(key => {
-    const data = byMonth[key];
-    const label = nomMeses[data.m] + ' ' + String(data.y).slice(2);
+  const mesIng = rowsInMonth(ing, selMonth || months[months.length-1]);
+  const ingSlices = [
+    { label: 'Apunayni',  value: sumBy(mesIng, r => r.tipo?.toUpperCase()==='APUNAYNI') },
+    { label: 'Salvawasi', value: sumBy(mesIng, r => r.tipo?.toUpperCase()==='SALVAWASI') },
+    { label: 'Tienda',    value: sumBy(mesIng, r => r.tipo?.toUpperCase()==='TIENDA') },
+    { label: 'Otros',     value: sumBy(mesIng, r => !['APUNAYNI','SALVAWASI','TIENDA'].includes(r.tipo?.toUpperCase())) },
+  ].filter(s => s.value > 0);
+  html += pieChart(ingSlices, PIE_COLORS_ING);
 
-    if (isLili && liliStats[key]) {
-      const ls = liliStats[key];
-      const pctDebido  = ls.totalDebido / maxVal * 100;
-      const pctPagado  = Math.min(ls.pagado, ls.totalDebido) / maxVal * 100;
-      const pctDeuda   = ls.deudaAnterior / maxVal * 100;
-      const pctBase    = ls.esperadoMes / maxVal * 100;
-      const pendiente  = ls.saldoFin;
-
-      barsHtml += `<div style="margin-bottom:12px">
-        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:4px">
-          <span style="font-weight:600;color:var(--text)">${label}</span>
-          <span>${ls.deudaAnterior>0?`deuda ant: ${fmtCOP(ls.deudaAnterior)} · `:''
-          }esperado: ${fmtCOP(ls.esperadoMes)}</span>
-        </div>
-        <div class="prog-track" style="height:18px;border-radius:5px">
-          ${ls.deudaAnterior>0?`<div class="prog-bar-prev" style="width:${Math.min(pctDebido,100)}%;opacity:0.5"></div>`:''}
-          <div class="prog-bar-base" style="width:${Math.min(pctBase,100)}%"></div>
-          <div class="prog-bar-paid" style="width:${Math.min(pctPagado,100)}%"></div>
-          <div class="prog-target-line" style="left:${Math.min(pctDebido,98)}%"></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:3px">
-          <span style="color:var(--green)">Pagado: ${fmtCOP(ls.pagado)}</span>
-          <span style="color:${pendiente>0?'var(--red)':'var(--green)'}">${pendiente>0?'Pendiente: '+fmtCOP(pendiente):'✓ Al día'}</span>
-        </div>
-      </div>`;
-    } else {
-      // Standard bar
-      if (data.ing > 0) {
-        const pct = data.ing / maxVal * 100;
-        barsHtml += `<div class="ana-bar-row">
-          <div class="ana-bar-label">${label}</div>
-          <div class="ana-bar-track">
-            <div class="ana-bar-fill ing" style="width:${pct}%">
-              <span class="ana-bar-val">${fmtCOP(data.ing)}</span>
-            </div>
-          </div>
-        </div>`;
-      }
-      if (data.egr > 0) {
-        const pct = data.egr / maxVal * 100;
-        barsHtml += `<div class="ana-bar-row">
-          <div class="ana-bar-label" style="${data.ing>0?'color:var(--red)':''}">
-            ${data.ing>0?'↳ egr':label}
-          </div>
-          <div class="ana-bar-track">
-            <div class="ana-bar-fill egr" style="width:${pct}%">
-              <span class="ana-bar-val">${fmtCOP(data.egr)}</span>
-            </div>
-          </div>
-        </div>`;
-      }
-    }
-  });
-  barsHtml += `</div>`;
-
-  // ── Monthly detail list ──────────────────────────────────────────────
-  let listHtml = '';
-  months.slice().reverse().forEach(key => {
-    const data  = byMonth[key];
-    const ls    = isLili ? liliStats[key] : null;
-    const mNom  = nomMesesL[data.m];
-
-    listHtml += `<div style="background:var(--surface);border:1px solid var(--border);
-      border-radius:var(--radius-sm);padding:14px;margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
-        <div style="font-size:14px;font-weight:700">${mNom} ${data.y}</div>
-        <div style="text-align:right;font-size:12px;color:var(--text3)">${data.rows.length} mov.</div>
-      </div>`;
-
-    if (ls) {
-      // Lili detailed breakdown
-      listHtml += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
-        ${ls.deudaAnterior>0?`<div style="background:rgba(240,192,96,0.1);border-radius:6px;padding:8px">
-          <div style="font-size:10px;color:var(--gold)">DEUDA ANTERIOR</div>
-          <div style="font-size:13px;font-weight:700;color:var(--gold)">${fmtCOP(ls.deudaAnterior)}</div>
-        </div>`:''}
-        <div style="background:var(--surface2);border-radius:6px;padding:8px">
-          <div style="font-size:10px;color:var(--text3)">ESPERADO MES</div>
-          <div style="font-size:13px;font-weight:700">${fmtCOP(ls.esperadoMes)}</div>
-        </div>
-        <div style="background:var(--surface2);border-radius:6px;padding:8px">
-          <div style="font-size:10px;color:var(--text3)">TOTAL DEBIDO</div>
-          <div style="font-size:13px;font-weight:700">${fmtCOP(ls.totalDebido)}</div>
-        </div>
-        <div style="background:rgba(46,204,138,0.1);border-radius:6px;padding:8px">
-          <div style="font-size:10px;color:var(--green)">PAGADO</div>
-          <div style="font-size:13px;font-weight:700;color:var(--green)">${fmtCOP(ls.pagado)}</div>
-        </div>
-        <div style="background:${ls.saldoFin>0?'rgba(255,95,109,0.1)':'rgba(46,204,138,0.1)'};border-radius:6px;padding:8px">
-          <div style="font-size:10px;color:${ls.saldoFin>0?'var(--red)':'var(--green)'}">${ls.saldoFin>0?'PENDIENTE':'AL DÍA'}</div>
-          <div style="font-size:13px;font-weight:700;color:${ls.saldoFin>0?'var(--red)':'var(--green)'}">
-            ${ls.saldoFin>0?fmtCOP(ls.saldoFin):'✓'}
-          </div>
-        </div>
-      </div>`;
-    } else {
-      if (data.ing>0) listHtml += `<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0">
-        <span style="color:var(--text3)">Ingresos</span>
-        <span style="color:var(--green);font-weight:600">+${fmtCOP(data.ing)}</span></div>`;
-      if (data.egr>0) listHtml += `<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0">
-        <span style="color:var(--text3)">Egresos</span>
-        <span style="color:var(--red);font-weight:600">−${fmtCOP(data.egr)}</span></div>`;
-    }
-
-    // Individual movements
-    if (data.rows.length > 0) {
-      listHtml += `<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">`;
-      data.rows.sort((a,b)=>{const da=parseFecha(a.fecha),db=parseFecha(b.fecha);return da-db;})
-               .forEach(r => {
-        const isPos = r.valor > 0;
-        const extra = mode==='desc' ? r.medio : mode==='medio' ? r.desc : r.desc;
-        listHtml += `<div style="display:flex;justify-content:space-between;align-items:center;
-          padding:6px 0;border-bottom:1px solid var(--border)">
-          <div>
-            <div style="font-size:12px;font-weight:500">${extra||'—'}</div>
-            <div style="font-size:11px;color:var(--text3)">${fmtFecha(r.fecha)}${mode!=='medio'?' · '+r.medio:''}</div>
-          </div>
-          <div style="font-size:13px;font-weight:700;color:${isPos?'var(--green)':'var(--red)'}">
-            ${isPos?'+':'−'}${fmtCOP(Math.abs(r.valor))}
-          </div>
-        </div>`;
-      });
-      listHtml += `</div>`;
-    }
-    listHtml += `</div>`;
-  });
-
-  div.innerHTML = summaryHtml + barsHtml + listHtml;
+  return html;
 }
 
-</script>
-  </div>
+// ── EGRESOS tab ─────────────────────────────────────────────────────────────
+function buildEgresos() {
+  const months = getMonths();
+  const egr = state.rows.filter(r => r.ie==='EGRESO');
+  const totalEgr = egr.reduce((s,r) => s + Math.abs(r.valor), 0);
+  const avgEgr   = months.length ? Math.round(totalEgr / months.length) : 0;
 
+  let html = `<div class="ana-stat-grid">
+    <div class="ana-stat-box full">
+      <div class="ana-stat-lbl">TOTAL EGRESOS</div>
+      <div class="ana-stat-val" style="color:var(--red)">${fmtCOP(totalEgr)}</div>
+    </div>
+    <div class="ana-stat-box">
+      <div class="ana-stat-lbl">PROMEDIO MES</div>
+      <div class="ana-stat-val">${fmtCOP(avgEgr)}</div>
+    </div>
+    <div class="ana-stat-box">
+      <div class="ana-stat-lbl">MESES</div>
+      <div class="ana-stat-val" style="color:var(--gold)">${months.length}</div>
+    </div>
+  </div>`;
+
+  html += `<div class="card-title" style="margin-bottom:10px">Egresos mes a mes</div>`;
+  html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px">`;
+  html += barChart(months, m => sumBy(rowsInMonth(egr, m), r=>true), 'egr', fmtCOP);
+  html += `</div>`;
+
+  const selMonth = (() => {
+    const el = document.getElementById('egrPieMes');
+    return el ? el.value : months[months.length-1];
+  })();
+  html += `<div class="card-title" style="margin-bottom:10px">Composición por mes</div>`;
+  html += monthSelector('egrPieMes', months, selMonth);
+
+  const mesEgr = rowsInMonth(egr, selMonth || months[months.length-1]);
+  const egrSlices = [
+    { label: 'Sal. Alejandro', value: sumBy(mesEgr, r => r.desc?.toUpperCase()==='SALARIO-ALEJANDRO') },
+    { label: 'Sal. Liliana',   value: sumBy(mesEgr, r => r.desc?.toUpperCase()==='SALARIO-LILIANA') },
+    { label: 'Sal. Diego',     value: sumBy(mesEgr, r => r.desc?.toUpperCase()==='SALARIO-DIEGO') },
+    { label: 'Contabilidad',   value: sumBy(mesEgr, r => r.desc?.toUpperCase()==='CONTABILIDAD') },
+    { label: 'Operativos',     value: sumBy(mesEgr, r => r.tipo?.toUpperCase()==='OPERATIVO' && r.desc?.toUpperCase()!=='CONTABILIDAD') },
+    { label: 'Otros',          value: sumBy(mesEgr, r => !['SALARIOS','OPERATIVO'].includes(r.tipo?.toUpperCase())) },
+  ].filter(s => s.value > 0);
+  html += pieChart(egrSlices, PIE_COLORS_EGR);
+
+  return html;
+}
+
+// ── POR CUENTA tab ──────────────────────────────────────────────────────────
+function buildPorCuenta() {
+  const months = getMonths();
+  const ing = state.rows.filter(r => r.ie==='INGRESO' && r.tipo?.toUpperCase() !== 'SALDOS');
+  const medios = [...new Set(ing.map(r => r.medio?.toUpperCase()).filter(Boolean))].sort();
+
+  const totalIng = ing.reduce((s,r) => s + r.valor, 0);
+
+  let html = `<div class="ana-stat-grid">
+    <div class="ana-stat-box full">
+      <div class="ana-stat-lbl">TOTAL INGRESOS POR CUENTA</div>
+      <div class="ana-stat-val" style="color:var(--green)">${fmtCOP(totalIng)}</div>
+    </div>
+  </div>`;
+
+  // Bar per medio per month
+  medios.forEach((medio, mi) => {
+    const medioRows = ing.filter(r => r.medio?.toUpperCase()===medio);
+    const totalMedio = medioRows.reduce((s,r) => s+r.valor, 0);
+    if (totalMedio === 0) return;
+    const colors = ['ing','neu',''];
+    html += `<div class="card-title" style="margin-bottom:8px;margin-top:${mi>0?'16px':'0px'}">${medio} · ${fmtCOP(totalMedio)}</div>`;
+    html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:8px">`;
+    html += barChart(months, m => sumBy(rowsInMonth(medioRows, m), r=>true), 'ing', fmtCOP);
+    html += `</div>`;
+  });
+
+  // Pie: distribution across medios (total)
+  html += `<div class="card-title" style="margin-bottom:10px;margin-top:16px">Distribución total por cuenta</div>`;
+  const cuentaSlices = medios.map(m => ({
+    label: m,
+    value: sumBy(ing.filter(r => r.medio?.toUpperCase()===m), r=>true)
+  })).filter(s=>s.value>0);
+  html += pieChart(cuentaSlices, PIE_COLORS_ING);
+
+  return html;
+}
+
+
+</script>
