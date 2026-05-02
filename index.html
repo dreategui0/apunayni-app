@@ -1580,8 +1580,18 @@ function showScreen(idx) {
   }
   // Show analytics tab bar only on analytics screen
   const tabBar = document.getElementById('anaTabBar');
-  if (tabBar) tabBar.style.display = idx===4 ? 'block' : 'none';
-  // No need to change .screens overflow - each screen handles its own scroll
+  const anaScreen = document.getElementById('screenAnalisis');
+  if (tabBar) {
+    tabBar.style.display = idx===4 ? 'block' : 'none';
+    if (idx===4 && anaScreen) {
+      requestAnimationFrame(() => {
+        const h = tabBar.offsetHeight;
+        anaScreen.style.top = h + 'px';
+      });
+    } else if (anaScreen) {
+      anaScreen.style.top = '';
+    }
+  }
   state.currentScreen = idx;
   if (idx===4) initAnalisis();
 }
