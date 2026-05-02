@@ -62,7 +62,7 @@ html, body {
 /* ── HEADER ──────────────────────────────────────────────────────────── */
 .header {
   padding: 52px 24px 16px;
-  background: linear-gradient(180deg, #0d0d20 0%, transparent 100%);
+  background: #0d0d20;
   position: relative; z-index: 10;
   flex-shrink: 0;
 }
@@ -667,17 +667,15 @@ html, body {
   </div>
 
     <!-- ── SCREEN: ANÁLISIS HISTÓRICO ───────────────────────────── -->
-    <div class="screen" id="screenAnalisis">
-      <div style="padding-top:8px">
+    <div class="screen" id="screenAnalisis" style="padding:0;overflow:hidden;display:flex;flex-direction:column">
 
-        <!-- Mode toggles FIRST so they're always visible -->
-        <div style="display:flex;gap:8px;margin-bottom:14px">
+      <!-- Sticky controls — never scroll away -->
+      <div style="flex-shrink:0;padding:10px 20px 0;background:var(--bg)">
+        <div style="display:flex;gap:8px;margin-bottom:10px">
           <button class="chip" id="toggle_tipo"  onclick="setAnalisisMode('tipo')">Por tipo</button>
           <button class="chip active" id="toggle_desc" onclick="setAnalisisMode('desc')">Por descripción</button>
           <button class="chip" id="toggle_medio" onclick="setAnalisisMode('medio')">Por cuenta</button>
         </div>
-
-        <!-- Search/filter bar -->
         <div style="position:relative;margin-bottom:10px">
           <input type="text" id="analisisSearch" class="form-input"
             placeholder="Buscar: GAS, SALARIOS, RESERVAS..."
@@ -685,20 +683,17 @@ html, body {
           <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);
             color:var(--text3);font-size:16px;pointer-events:none">🔍</span>
         </div>
-
-        <!-- Keyword chips -->
-        <div class="chip-group" id="analisisChips" style="margin-bottom:12px"></div>
-
-        <!-- Explanation note -->
-        <div style="font-size:11px;color:var(--text3);padding:8px 10px;
-          background:var(--surface2);border-radius:8px;margin-bottom:14px;line-height:1.5">
-          ℹ️ <strong>Por tipo</strong> agrupa por rubro (APUNAYNI, SALARIOS…). 
-          <strong>Por cuenta</strong> agrupa por medio de pago (BANCOLOMBIA, EFECTIVO…). 
-          Los totales pueden diferir porque un mismo movimiento pertenece a un tipo Y a una cuenta.
+        <div class="chip-group" id="analisisChips" style="margin-bottom:10px"></div>
+        <div style="font-size:11px;color:var(--text3);padding:7px 10px;
+          background:var(--surface2);border-radius:8px;margin-bottom:10px;line-height:1.5">
+          ℹ️ <strong>Por tipo</strong> agrupa por rubro. <strong>Por cuenta</strong> agrupa por medio de pago.
+          Los totales pueden diferir porque son dos dimensiones distintas del mismo movimiento.
         </div>
+      </div>
 
-        <!-- Results -->
-        <div id="analisisResult"></div>
+      <!-- Scrollable results -->
+      <div id="analisisResult"
+        style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 20px 120px">
       </div>
     </div>
 
@@ -1533,7 +1528,14 @@ function showScreen(idx) {
   const screens = ['screenResumen','screenMovimientos','screenNueva','screenConfig','screenAnalisis'];
   screens.forEach((s,i) => {
     const el = document.getElementById(s);
-    el.classList.toggle('active', i===idx);
+    if (i === idx) {
+      // Analytics needs flex, others use block
+      el.style.display = (i === 4) ? 'flex' : 'block';
+      el.classList.add('active');
+    } else {
+      el.classList.remove('active');
+      el.style.display = 'none';
+    }
   });
   for(let i=0;i<5;i++) {
     const btn = document.getElementById('nav'+i);
