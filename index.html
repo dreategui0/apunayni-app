@@ -736,7 +736,8 @@ html, body {
   </div>
     <!-- ── SCREEN: ANÁLISIS ──────────────────────────────────── -->
     <!-- ── SCREEN: ANÁLISIS ────────────────────────────── -->
-    <div class="screen" id="screenAnalisis">
+    <div class="screen" id="screenAnalisis"
+         style="position:relative;height:auto;overflow:visible;padding-bottom:120px">
       <div id="anaContent"></div>
     </div>
 
@@ -1581,6 +1582,9 @@ function showScreen(idx) {
   // Show analytics tab bar only on analytics screen
   const tabBar = document.getElementById('anaTabBar');
   if (tabBar) tabBar.style.display = idx===4 ? 'block' : 'none';
+  // Analytics screen uses flow layout so .screens needs to scroll
+  const screensEl = document.querySelector('.screens');
+  if (screensEl) screensEl.style.overflowY = idx===4 ? 'auto' : 'hidden';
   state.currentScreen = idx;
   if (idx===4) initAnalisis();
 }
