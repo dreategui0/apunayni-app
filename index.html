@@ -728,7 +728,7 @@ html, body {
     <!-- ── SCREEN: ANÁLISIS ────────────────────────────── -->
     <div class="screen" id="screenAnalisis">
       <!-- Tab selector -->
-      <div style="display:flex;gap:6px;margin-bottom:16px;padding-top:4px">
+      <div style="display:flex;gap:6px;margin-bottom:16px;padding-top:8px">
         <button class="ana-tab active" id="anaTab0" onclick="setAnaTab(0)">Ingresos</button>
         <button class="ana-tab" id="anaTab1" onclick="setAnaTab(1)">Egresos</button>
         <button class="ana-tab" id="anaTab2" onclick="setAnaTab(2)">Por cuenta</button>
@@ -1882,6 +1882,7 @@ function pieChart(slices, colors) {
 
 // ── Month selector for pie ──────────────────────────────────────────────────
 function monthSelector(id, months, selectedKey) {
+  const allOpt = `<option value="ALL" ${selectedKey==='ALL'?'selected':''}>📅 Toda la historia</option>`;
   const opts = months.map(m => {
     const [y, mo] = m.split('-').map(Number);
     const lbl = MESES_FULL[mo-1] + ' ' + y;
@@ -1891,7 +1892,7 @@ function monthSelector(id, months, selectedKey) {
   return `<select id="${id}" onchange="renderAnaContent()"
     style="background:var(--surface2);color:var(--text);border:1px solid var(--border2);
     border-radius:8px;padding:7px 10px;font-family:var(--font-body);font-size:13px;
-    width:100%;margin-bottom:14px">${opts}</select>`;
+    width:100%;margin-bottom:14px">${allOpt}${opts}</select>`;
 }
 
 // ── INGRESOS tab ────────────────────────────────────────────────────────────
@@ -1926,12 +1927,12 @@ function buildIngresos() {
   // Pie selector
   const selMonth = (() => {
     const el = document.getElementById('ingPieMes');
-    return el ? el.value : months[months.length-1];
+    return el ? el.value : 'ALL';
   })();
   html += `<div class="card-title" style="margin-bottom:10px">Composición por mes</div>`;
   html += monthSelector('ingPieMes', months, selMonth);
 
-  const mesIng = rowsInMonth(ing, selMonth || months[months.length-1]);
+  const mesIng = selMonth === 'ALL' ? ing : rowsInMonth(ing, selMonth);
   const ingSlices = [
     { label: 'Apunayni',  value: sumBy(mesIng, r => r.tipo?.toUpperCase()==='APUNAYNI') },
     { label: 'Salvawasi', value: sumBy(mesIng, r => r.tipo?.toUpperCase()==='SALVAWASI') },
@@ -1972,12 +1973,12 @@ function buildEgresos() {
 
   const selMonth = (() => {
     const el = document.getElementById('egrPieMes');
-    return el ? el.value : months[months.length-1];
+    return el ? el.value : 'ALL';
   })();
   html += `<div class="card-title" style="margin-bottom:10px">Composición por mes</div>`;
   html += monthSelector('egrPieMes', months, selMonth);
 
-  const mesEgr = rowsInMonth(egr, selMonth || months[months.length-1]);
+  const mesEgr = selMonth === 'ALL' ? egr : rowsInMonth(egr, selMonth);
   const egrSlices = [
     { label: 'Sal. Alejandro', value: sumBy(mesEgr, r => r.desc?.toUpperCase()==='SALARIO-ALEJANDRO') },
     { label: 'Sal. Liliana',   value: sumBy(mesEgr, r => r.desc?.toUpperCase()==='SALARIO-LILIANA') },
