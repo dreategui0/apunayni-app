@@ -532,6 +532,29 @@ html, body {
     </div>
   </div>
 
+  <!-- Analytics controls panel - outside scroll, inside app flex -->
+  <div id="analisisControls" style="display:none;flex-shrink:0;
+    padding:8px 20px 0;background:var(--bg);border-bottom:1px solid var(--border)">
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <button class="chip" id="toggle_tipo"  onclick="setAnalisisMode('tipo')">Por tipo</button>
+      <button class="chip active" id="toggle_desc" onclick="setAnalisisMode('desc')">Por descripción</button>
+      <button class="chip" id="toggle_medio" onclick="setAnalisisMode('medio')">Por cuenta</button>
+    </div>
+    <div style="position:relative;margin-bottom:10px">
+      <input type="text" id="analisisSearch" class="form-input"
+        placeholder="Buscar: GAS, SALARIOS, RESERVAS..."
+        oninput="onAnalisisSearch()" style="padding-right:40px">
+      <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);
+        color:var(--text3);font-size:16px;pointer-events:none">🔍</span>
+    </div>
+    <div class="chip-group" id="analisisChips" style="margin-bottom:10px"></div>
+    <div style="font-size:11px;color:var(--text3);padding:7px 10px;
+      background:var(--surface2);border-radius:8px;margin-bottom:10px;line-height:1.5">
+      ℹ️ <strong>Por tipo</strong> agrupa por rubro. <strong>Por cuenta</strong> agrupa por medio de pago.
+      Los totales difieren porque son dos dimensiones distintas del mismo movimiento.
+    </div>
+  </div>
+
   <div class="screens">
     <!-- ── SCREEN: RESUMEN ─────────────────────────────────── -->
     <div class="screen active" id="screenResumen">
@@ -665,38 +688,12 @@ html, body {
       </div>
     </div>
   </div>
-
-    <!-- ── SCREEN: ANÁLISIS HISTÓRICO ───────────────────────────── -->
-    <div class="screen" id="screenAnalisis" style="padding:0 0 120px 0">
-
-      <!-- Sticky controls — stick to top while results scroll -->
-      <div style="position:sticky;top:0;z-index:10;padding:10px 20px 0;background:var(--bg)">
-        <div style="display:flex;gap:8px;margin-bottom:10px">
-          <button class="chip" id="toggle_tipo"  onclick="setAnalisisMode('tipo')">Por tipo</button>
-          <button class="chip active" id="toggle_desc" onclick="setAnalisisMode('desc')">Por descripción</button>
-          <button class="chip" id="toggle_medio" onclick="setAnalisisMode('medio')">Por cuenta</button>
-        </div>
-        <div style="position:relative;margin-bottom:10px">
-          <input type="text" id="analisisSearch" class="form-input"
-            placeholder="Buscar: GAS, SALARIOS, RESERVAS..."
-            oninput="onAnalisisSearch()" style="padding-right:40px">
-          <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);
-            color:var(--text3);font-size:16px;pointer-events:none">🔍</span>
-        </div>
-        <div class="chip-group" id="analisisChips" style="margin-bottom:10px"></div>
-        <div style="font-size:11px;color:var(--text3);padding:7px 10px;
-          background:var(--surface2);border-radius:8px;margin-bottom:10px;line-height:1.5">
-          ℹ️ <strong>Por tipo</strong> agrupa por rubro. <strong>Por cuenta</strong> agrupa por medio de pago.
-          Los totales pueden diferir porque son dos dimensiones distintas del mismo movimiento.
-        </div>
-      </div>
-
-      <!-- Scrollable results -->
-      <div id="analisisResult" style="padding:4px 20px 0">
-      </div>
+    <div class="screen" id="screenAnalisis">
+      <div id="analisisResult"></div>
     </div>
 
   <!-- Bottom nav -->
+
   <nav class="bottom-nav">
     <button class="nav-btn active" id="nav0" onclick="showScreen(0)">
       <span class="nav-icon">◈</span>Resumen
@@ -1533,6 +1530,21 @@ function showScreen(idx) {
     const btn = document.getElementById('nav'+i);
     if (btn) btn.classList.toggle('active',i===idx);
   }
+  // Show/hide analytics controls panel
+  const ctrl = document.getElementById('analisisControls');
+  if (ctrl) {
+    const isAna = idx === 4;
+    ctrl.style.display = isAna ? 'block' : 'none';
+    if (isAna) {
+      // After controls render, set padding-top so content isn't hidden under them
+      requestAnimationFrame(() => {
+        const h = ctrl.offsetHeight;
+        document.getElementById('screenAnalisis').style.paddingTop = (h + 8) + 'px';
+      });
+    } else {
+      document.getElementById('screenAnalisis').style.paddingTop = '';
+    }
+  }
   state.currentScreen = idx;
   if (idx===4) initAnalisis();
 }
@@ -2008,3 +2020,5 @@ function renderAnaResult() {
 }
 
 </script>
+  </div>
+
