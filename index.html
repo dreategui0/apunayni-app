@@ -126,6 +126,9 @@ html, body {
 .screen.active {
   display: block; opacity: 1; transform: none;
 }
+#screenAnalisis.active {
+  display: flex;
+}
 
 /* ── CARDS ───────────────────────────────────────────────────────────── */
 .card {
@@ -591,16 +594,6 @@ html, body {
 
 
 
-  <!-- Analytics tab bar - flex sibling of .screens, same level as header -->
-  <div id="anaTabBar" style="display:none;flex-shrink:0;
-       padding:10px 20px;background:var(--bg);border-bottom:1px solid var(--border)">
-    <div style="display:flex;gap:6px">
-      <button class="ana-tab active" id="anaTab0" onclick="setAnaTab(0)">Ingresos</button>
-      <button class="ana-tab" id="anaTab1" onclick="setAnaTab(1)">Egresos</button>
-      <button class="ana-tab" id="anaTab2" onclick="setAnaTab(2)">Por cuenta</button>
-    </div>
-  </div>
-
   <div class="screens">
     <!-- ── SCREEN: RESUMEN ─────────────────────────────────── -->
     <div class="screen active" id="screenResumen">
@@ -736,8 +729,18 @@ html, body {
   </div>
     <!-- ── SCREEN: ANÁLISIS ──────────────────────────────────── -->
     <!-- ── SCREEN: ANÁLISIS ────────────────────────────── -->
-    <div class="screen" id="screenAnalisis">
-      <div id="anaContent"></div>
+    <div class="screen" id="screenAnalisis" style="padding:0;display:flex;flex-direction:column">
+      <!-- Tab bar fixed at top of this screen -->
+      <div id="anaTabBar" style="flex-shrink:0;padding:10px 20px;
+           background:var(--bg);border-bottom:1px solid var(--border)">
+        <div style="display:flex;gap:6px">
+          <button class="ana-tab active" id="anaTab0" onclick="setAnaTab(0)">Ingresos</button>
+          <button class="ana-tab" id="anaTab1" onclick="setAnaTab(1)">Egresos</button>
+          <button class="ana-tab" id="anaTab2" onclick="setAnaTab(2)">Por cuenta</button>
+        </div>
+      </div>
+      <!-- Scrollable content -->
+      <div id="anaContent" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 20px 120px"></div>
     </div>
 
   <!-- Bottom navv -->
@@ -1578,10 +1581,7 @@ function showScreen(idx) {
     const btn = document.getElementById('nav'+i);
     if (btn) btn.classList.toggle('active',i===idx);
   }
-  // Show analytics tab bar only on analytics screen
-  const tabBar = document.getElementById('anaTabBar');
-  if (tabBar) tabBar.style.display = idx===4 ? 'block' : 'none';
-  // No need to change .screens overflow - each screen handles its own scroll
+  // anaTabBar is now inside screenAnalisis - no extra adjustment needed
   state.currentScreen = idx;
   if (idx===4) initAnalisis();
 }
@@ -1792,13 +1792,8 @@ function renderAnaContent() {
   if (anaTab===0) div.innerHTML = buildIngresos();
   else if (anaTab===1) div.innerHTML = buildEgresos();
   else div.innerHTML = buildPorCuenta();
-  // Animate bars after render
-  requestAnimationFrame(() => {
-    animateBars();
-    // Force scroll container to recalculate height
-    const screen = document.getElementById('screenAnalisis');
-    if (screen) screen.scrollTop = 0;
-  });
+  div.scrollTop = 0;
+  requestAnimationFrame(() => animateBars());
 }
 
 function animateBars() {
