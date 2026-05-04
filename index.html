@@ -127,7 +127,7 @@ html, body {
   display: block; opacity: 1; transform: none;
 }
 #screenAnalisis.active {
-  display: flex;
+  display: flex !important;
   flex-direction: column;
   padding: 0;
 }
@@ -1915,19 +1915,22 @@ function buildIngresos() {
   const totalIng = ing.reduce((s,r) => s + r.valor, 0);
   const avgIng   = months.length ? Math.round(totalIng / months.length) : 0;
 
-  // Summary cards
-  let html = `<div class="ana-stat-grid">
-    <div class="ana-stat-box full">
-      <div class="ana-stat-lbl">TOTAL INGRESOS</div>
-      <div class="ana-stat-val" style="color:var(--green)">${fmtCOP(totalIng)}</div>
+  // Summary cards — full width to prevent text cutting
+  let html = `<div style="height:8px"></div>
+  <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+    <div class="ana-stat-box" style="display:flex;justify-content:space-between;align-items:center">
+      <div class="ana-stat-lbl" style="margin:0">TOTAL INGRESOS</div>
+      <div class="ana-stat-val" style="color:var(--green);font-size:20px">${fmtCOP(totalIng)}</div>
     </div>
-    <div class="ana-stat-box">
-      <div class="ana-stat-lbl">PROMEDIO MES</div>
-      <div class="ana-stat-val">${fmtCOP(avgIng)}</div>
-    </div>
-    <div class="ana-stat-box">
-      <div class="ana-stat-lbl">MESES</div>
-      <div class="ana-stat-val" style="color:var(--gold)">${months.length}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="ana-stat-box">
+        <div class="ana-stat-lbl">PROMEDIO MES</div>
+        <div class="ana-stat-val">${fmtCOP(avgIng)}</div>
+      </div>
+      <div class="ana-stat-box">
+        <div class="ana-stat-lbl">MESES</div>
+        <div class="ana-stat-val" style="color:var(--gold)">${months.length}</div>
+      </div>
     </div>
   </div>`;
 
@@ -1964,18 +1967,21 @@ function buildEgresos() {
   const totalEgr = egr.reduce((s,r) => s + Math.abs(r.valor), 0);
   const avgEgr   = months.length ? Math.round(totalEgr / months.length) : 0;
 
-  let html = `<div class="ana-stat-grid">
-    <div class="ana-stat-box full">
-      <div class="ana-stat-lbl">TOTAL EGRESOS</div>
-      <div class="ana-stat-val" style="color:var(--red)">${fmtCOP(totalEgr)}</div>
+  let html = `<div style="height:8px"></div>
+  <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+    <div class="ana-stat-box" style="display:flex;justify-content:space-between;align-items:center">
+      <div class="ana-stat-lbl" style="margin:0">TOTAL EGRESOS</div>
+      <div class="ana-stat-val" style="color:var(--red);font-size:20px">${fmtCOP(totalEgr)}</div>
     </div>
-    <div class="ana-stat-box">
-      <div class="ana-stat-lbl">PROMEDIO MES</div>
-      <div class="ana-stat-val">${fmtCOP(avgEgr)}</div>
-    </div>
-    <div class="ana-stat-box">
-      <div class="ana-stat-lbl">MESES</div>
-      <div class="ana-stat-val" style="color:var(--gold)">${months.length}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="ana-stat-box">
+        <div class="ana-stat-lbl">PROMEDIO MES</div>
+        <div class="ana-stat-val">${fmtCOP(avgEgr)}</div>
+      </div>
+      <div class="ana-stat-box">
+        <div class="ana-stat-lbl">MESES</div>
+        <div class="ana-stat-val" style="color:var(--gold)">${months.length}</div>
+      </div>
     </div>
   </div>`;
 
