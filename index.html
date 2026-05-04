@@ -130,6 +130,7 @@ html, body {
   display: flex !important;
   flex-direction: column;
   padding: 0;
+  min-height: 0;
 }
 
 /* ── CARDS ───────────────────────────────────────────────────────────── */
@@ -736,7 +737,7 @@ html, body {
     <!-- ── SCREEN: ANÁLISIS ──────────────────────────────────── -->
     <div class="screen" id="screenAnalisis">
       <!-- Scrollable content - tabs are below, so content starts at top -->
-      <div id="anaContent" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 20px 16px"></div>
+      <div id="anaContent" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 20px 16px;min-height:0"></div>
       <!-- Tab bar fixed at BOTTOM of this screen - always visible -->
       <div id="anaTabBar" style="flex-shrink:0;padding:10px 20px 12px;
            background:var(--bg);border-top:1px solid var(--border)">
